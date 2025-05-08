@@ -316,6 +316,10 @@ export default function AdherentDetailScreen() {
           ) : (
             <Text style={styles.emptyStateText}>Aucune activité enregistrée</Text>
           )}
+          {/* Add Reserve More Button */}
+          <TouchableOpacity style={styles.reserveButton} onPress={() => router.push('/activities')}>
+            <Text style={styles.reserveButtonText}>Réserver Plus</Text>
+          </TouchableOpacity>
         </View>
         
         {/* Performances Section with Month Selector */}
@@ -944,4 +948,25 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontWeight: '600', // Plus gras quand actif
   },
+
+  reserveButton: {
+  marginTop: 20,
+  paddingVertical: 12,
+  paddingHorizontal: 32,
+  backgroundColor: '#6200EE',
+  borderRadius: 24,
+  alignSelf: 'center',
+  elevation: 3, // Android shadow
+  shadowColor: '#000',
+  shadowOffset: { width: 0, height: 2 },
+  shadowOpacity: 0.2,
+  shadowRadius: 4,
+  },
+
+
+  reserveButtonText: {
+    color: 'white',
+    fontWeight: 'bold',
+    fontSize: 14,
+  }
 });
