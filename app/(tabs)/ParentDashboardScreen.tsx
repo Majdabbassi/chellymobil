@@ -96,7 +96,7 @@ export default function ParentDashboardScreen() {
         const token = await AsyncStorage.getItem('jwt');
         if (!token) return;
         
-        const res = await axios.get('http://192.168.100.4:8080/api/notifications/me', {
+        const res = await axios.get('http://192.168.64.138:8080/api/notifications/me', {
           headers: {
             Authorization: `Bearer ${token}`,
           },
@@ -127,7 +127,7 @@ export default function ParentDashboardScreen() {
       // Envoie-le au backend si besoin :
       const jwt = await AsyncStorage.getItem('jwt');
       if (token && jwt) {
-        await axios.post('http://192.168.100.4:8080/api/notifications/token', {
+        await axios.post('http://192.168.64.138:8080/api/notifications/token', {
           token,
         }, {
           headers: {
@@ -235,7 +235,7 @@ export default function ParentDashboardScreen() {
             try {
               const token = await AsyncStorage.getItem('token');
               const perfRes = await axios.get(
-                `http://192.168.100.4:8080/api/performances/adherent/${adherent.id}/last`,
+                `http://192.168.64.138:8080/api/performances/adherent/${adherent.id}/last`,
                 {
                   headers: { Authorization: `Bearer ${token}` },
                   timeout: 5000 
@@ -252,7 +252,7 @@ export default function ParentDashboardScreen() {
             try {
               const token = await AsyncStorage.getItem('token');
               const sessionRes = await axios.get(
-                `http://192.168.100.4:8080/api/sessions/next/adherent/${adherent.id}`,
+                `http://192.168.64.138:8080/api/sessions/next/adherent/${adherent.id}`,
                 {
                   headers: { Authorization: `Bearer ${token}` },
                   timeout: 5000
@@ -418,45 +418,56 @@ export default function ParentDashboardScreen() {
         </View>
        
         {/* Quick Links */}
-        <View style={styles.quickLinksContainer}>
-          <TouchableOpacity
-            style={styles.quickLink}
-            onPress={() => router.push('/calendar')}
-          >
-            <View style={[styles.quickLinkIcon, { backgroundColor: '#F0F4FF' }]}>
-              <Ionicons name="calendar" size={22} color="#6366F1" />
-            </View>
-            <Text style={styles.quickLinkText}>Calendrier</Text>
-          </TouchableOpacity>
-         
-          <TouchableOpacity
-            style={styles.quickLink}
-            onPress={() => router.push('/PaymentSelectionScreen')}
-          >
-            <View style={[styles.quickLinkIcon, { backgroundColor: '#F5F3FF' }]}>
-              <Ionicons name="card-outline" size={22} color="#8B5CF6" />
-            </View>
-            <Text style={styles.quickLinkText}>Paiements</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.quickLink}
-            onPress={() => router.push('/messagess')}
-          >
-            <View style={[styles.quickLinkIcon, { backgroundColor: '#F0FDF4' }]}>
-              <Ionicons name="chatbubbles-outline" size={22} color="#10B981" />
-            </View>
-            <Text style={styles.quickLinkText}>Messages</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.quickLink}
-            onPress={() => router.push('/ParametresScreen')}
-          >
-            <View style={[styles.quickLinkIcon, { backgroundColor: '#FEF2F2' }]}>
-              <Ionicons name="settings-outline" size={22} color="#EF4444" />
-            </View>
-            <Text style={styles.quickLinkText}>Paramètre</Text>
-          </TouchableOpacity>
-        </View>
+<View style={styles.quickLinksContainer}>
+  {/* First Row */}
+  <View style={styles.quickLinksRow}>
+    <TouchableOpacity style={styles.quickLink} onPress={() => router.push('/calendar')}>
+      <View style={[styles.quickLinkIcon, { backgroundColor: '#F0F4FF' }]}>
+        <Ionicons name="calendar" size={22} color="#6366F1" />
+      </View>
+      <Text style={styles.quickLinkText}>Calendrier</Text>
+    </TouchableOpacity>
+
+    <TouchableOpacity style={styles.quickLink} onPress={() => router.push('/PaymentSelectionScreen')}>
+      <View style={[styles.quickLinkIcon, { backgroundColor: '#F5F3FF' }]}>
+        <Ionicons name="card-outline" size={22} color="#8B5CF6" />
+      </View>
+      <Text style={styles.quickLinkText}>Paiements</Text>
+    </TouchableOpacity>
+
+    <TouchableOpacity style={styles.quickLink} onPress={() => router.push('/messagess')}>
+      <View style={[styles.quickLinkIcon, { backgroundColor: '#F0FDF4' }]}>
+        <Ionicons name="chatbubbles-outline" size={22} color="#10B981" />
+      </View>
+      <Text style={styles.quickLinkText}>Messages</Text>
+    </TouchableOpacity>
+  </View>
+
+  {/* Second Row */}
+  <View style={styles.quickLinksRow}>
+    <TouchableOpacity style={styles.quickLink} onPress={() => router.push('/ParametresScreen')}>
+      <View style={[styles.quickLinkIcon, { backgroundColor: '#FEF2F2' }]}>
+        <Ionicons name="settings-outline" size={22} color="#EF4444" />
+      </View>
+      <Text style={styles.quickLinkText}>Paramètres</Text>
+    </TouchableOpacity>
+
+    <TouchableOpacity style={styles.quickLink} onPress={() => router.push('/activities')}>
+      <View style={[styles.quickLinkIcon, { backgroundColor: '#E0F2FE' }]}>
+        <Ionicons name="football-outline" size={22} color="#0EA5E9" />
+      </View>
+      <Text style={styles.quickLinkText}>Activités</Text>
+    </TouchableOpacity>
+
+    <TouchableOpacity style={styles.quickLink} onPress={() => router.push('/competitions')}>
+      <View style={[styles.quickLinkIcon, { backgroundColor: '#FEFCE8' }]}>
+        <Ionicons name="trophy-outline" size={22} color="#F59E0B" />
+      </View>
+      <Text style={styles.quickLinkText}>Compétitions</Text>
+    </TouchableOpacity>
+  </View>
+</View>
+
        
         {/* Adhérents Section Title */}
         <View style={styles.sectionHeader}>
@@ -815,11 +826,14 @@ const styles = StyleSheet.create({
 
   // Quick Links - Modern tile style
   quickLinksContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingHorizontal: 24,
-    marginBottom: 42,
-  },
+  paddingHorizontal: 30,
+  marginTop: 20,
+},
+quickLinksRow: {
+  flexDirection: 'row',
+  justifyContent: 'space-between',
+  marginBottom: 18,
+},
   quickLink: {
     alignItems: 'center',
     width: (width - 100) / 4, // Better spacing distribution
@@ -841,7 +855,7 @@ const styles = StyleSheet.create({
     borderColor: '#EBE5FF',
   },
   quickLinkText: {
-    fontSize: 14,
+    fontSize: 12,
     color: '#4B5563',
     fontWeight: '600',
     textAlign: 'center',
