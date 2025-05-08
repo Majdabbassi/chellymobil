@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "714374580333",
+    "project_id": "chellysport-b6180",
+    "storage_bucket": "chellysport-b6180.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:714374580333:android:f57053105081b953785764",
+        "android_client_info": {
+          "package_name": "com.anasabaza.chellymobilfresh"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyB9AvY384MW5fHFpHPqaGGZ0nlA-ISz7IM"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
