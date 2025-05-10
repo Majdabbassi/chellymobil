@@ -16,7 +16,7 @@ export default function PaymentConfirmationScreen() {
   }, [params]);
 
   const handleGoHome = () => {
-    router.replace('/(tabs)/ParentDashboardScreen');
+    router.replace('/(drawer)/ParentDashboardScreen');
   };
 
   return (
@@ -25,7 +25,7 @@ export default function PaymentConfirmationScreen() {
         <View style={styles.centered}>
           <Text style={styles.successText}>✅ Paiement réussi !</Text>
           <Text style={styles.text}>Merci pour votre réservation.</Text>
-          <Image source={require('../../assets/images/confirmation.png')} style={styles.image} resizeMode="contain" />
+          <Image source={require('@/assets/images/confirmation.png')} style={styles.image} resizeMode="contain" />
           <TouchableOpacity style={styles.button} onPress={handleGoHome}>
             <Text style={styles.buttonText}>Retour à l'accueil</Text>
           </TouchableOpacity>

@@ -3,7 +3,7 @@ import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import ParentLoginScreen from '@/components/LoginScreen';
 import RegisterFormScreen from '@/components/RegisterFormScreen';
-import HomeScreen from './(tabs)';
+import HomeScreen from './(drawer)/(tabs)';
 import { registerForPushNotificationsAsync } from '@/services/firebase-notifications';
 import { sendTokenToBackend } from '@/services/firebase-token';
 import * as Notifications from 'expo-notifications';

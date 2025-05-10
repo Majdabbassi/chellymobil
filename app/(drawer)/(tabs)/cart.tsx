@@ -3,7 +3,7 @@ import {
   View, Text, FlatList, TouchableOpacity, StyleSheet,
   Image, SafeAreaView, Alert, ActivityIndicator, Linking
 } from 'react-native';
-import { useCart } from '../../contexts/CartContext';
+import { useCart } from '../../../contexts/CartContext';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import axios from 'axios';
@@ -14,7 +14,7 @@ const API_BASE_URL = Constants?.expoConfig?.extra?.apiUrl ?? 'http://192.168.100
 
 const getImageSource = (image?: string) => {
   if (!image) {
-    return require('../../assets/images/adaptive-icon.png');
+    return require('@/assets/images/adaptive-icon.png');
   }
   if (image.startsWith('http')) {
     return { uri: image };

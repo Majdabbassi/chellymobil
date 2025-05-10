@@ -55,7 +55,7 @@ const getImageSource = (image?: string | any) => {
   // Si pas d'image, retourner l'image par défaut
   if (!image) {
     console.log("Aucune image trouvée, utilisation de l'image par défaut");
-    return require('../../assets/images/adaptive-icon.png');
+    return require('@/assets/images/adaptive-icon.png');
   }
 
   // Si c'est déjà un objet avec uri (format React Native)
@@ -80,7 +80,7 @@ const getImageSource = (image?: string | any) => {
 
   // Dans tous les autres cas, retourner l'image par défaut
   console.log("Format non reconnu, utilisation de l'image par défaut");
-  return require('../../assets/images/adaptive-icon.png');
+  return require('@/assets/images/adaptive-icon.png');
 };
 
 export default function ParentDashboardScreen() {

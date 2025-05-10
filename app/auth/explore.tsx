@@ -285,16 +285,23 @@ export default function ExploreScreen() {
   const [evenements, setEvenements] = useState([]);
 
   useEffect(() => {
-    const fetchEvenements = async () => {
-      try {
-        const data = await getAllEvenements();
+  const fetchEvenements = async () => {
+    try {
+      const data = await getAllEvenements();
+      console.log('📦 Evenements API response:', data); // 🔍 Debug
+      if (Array.isArray(data)) {
         setEvenements(data);
-      } catch (error) {
-        console.error("Erreur chargement événements:", error);
+      } else {
+        console.warn('⚠️ getAllEvenements did not return an array:', data);
+        setEvenements([]); // fallback to empty array
       }
-    };
-    fetchEvenements();
-  }, []);
+    } catch (error) {
+      console.error("❌ Erreur chargement événements:", error);
+      setEvenements([]); // fallback in case of error
+    }
+  };
+  fetchEvenements();
+}, []);
   
   useEffect(() => {
     const fetchCompetitions = async () => {

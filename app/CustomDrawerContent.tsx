@@ -1,70 +1,85 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Image } from 'react-native';
 import { DrawerContentScrollView } from '@react-navigation/drawer';
 import { Ionicons } from '@expo/vector-icons';
-import { router } from 'expo-router';
 
-export default function CustomDrawerContent(props) {
+interface CustomDrawerProps {
+  user: {
+    nom: string;
+    prenom: string;
+    email: string;
+  };
+  [key: string]: any; // for props.navigation etc.
+}
+
+export default function CustomDrawerContent({ user, ...props }: CustomDrawerProps) {
   return (
     <DrawerContentScrollView {...props} contentContainerStyle={styles.container}>
-      <Text style={styles.title}>🏀 Club Sportif</Text>
+      <View style={styles.header}>
+        <View style={styles.avatar}>
+          <Text style={{ color: '#fff', fontSize: 24, fontWeight: 'bold' }}>
+            {user?.prenom?.charAt(0).toUpperCase()}
+          </Text>
+        </View>
+        <Text style={styles.username}>{user.prenom} {user.nom}</Text>
+        <Text style={styles.email}>{user.email}</Text>
+      </View>
 
-      <TouchableOpacity style={styles.item} onPress={() => router.push('/ParentDashboardScreen')}>
-        <Ionicons name="home-outline" size={20} color="#6D28D9" />
-        <Text style={styles.label}>Accueil</Text>
-      </TouchableOpacity>
 
-      <TouchableOpacity style={styles.item} onPress={() => router.push('/calendar')}>
-        <Ionicons name="calendar-outline" size={20} color="#6D28D9" />
-        <Text style={styles.label}>Calendrier</Text>
-      </TouchableOpacity>
-
-      <TouchableOpacity style={styles.item} onPress={() => router.push('/messages')}>
-        <Ionicons name="chatbubbles-outline" size={20} color="#6D28D9" />
-        <Text style={styles.label}>Messages</Text>
-      </TouchableOpacity>
-
-      <TouchableOpacity style={styles.item} onPress={() => router.push('/PaymentSelectionScreen')}>
-        <Ionicons name="card-outline" size={20} color="#6D28D9" />
-        <Text style={styles.label}>Paiements</Text>
-      </TouchableOpacity>
-
-      <TouchableOpacity style={styles.item} onPress={() => router.push('/ParametresScreen')}>
-        <Ionicons name="settings-outline" size={20} color="#6D28D9" />
-        <Text style={styles.label}>Paramètres</Text>
+      <TouchableOpacity style={styles.menuItem} onPress={() => props.navigation.navigate('competition')}>
+        <Ionicons name="trophy-outline" size={20} color="#6D28D9" />
+        <Text style={styles.menuText}>Compétitions</Text>
       </TouchableOpacity>
 
       <TouchableOpacity
-        style={[styles.item, { marginTop: 20 }]}
+        style={styles.menuItem}
         onPress={() => {
-          // ton action de logout ici
+          props.navigation.reset({ index: 0, routes: [{ name: 'login' }] });
         }}
       >
         <Ionicons name="log-out-outline" size={20} color="#EF4444" />
-        <Text style={[styles.label, { color: '#EF4444' }]}>Déconnexion</Text>
+        <Text style={[styles.menuText, { color: '#EF4444' }]}>Se déconnecter</Text>
       </TouchableOpacity>
     </DrawerContentScrollView>
   );
 }
 
+
 const styles = StyleSheet.create({
   container: {
-    padding: 20,
+    paddingTop: 40,
+    paddingHorizontal: 20,
   },
-  title: {
-    fontSize: 20,
-    color: '#6D28D9',
+  header: {
+    alignItems: 'center',
+    marginBottom: 30,
+  },
+  avatar: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    marginBottom: 10,
+  },
+  username: {
+    fontSize: 18,
     fontWeight: 'bold',
-    marginBottom: 20,
+    color: '#000',
   },
-  item: {
+  email: {
+    fontSize: 14,
+    color: '#000',
+  },
+  menuItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 18,
+    paddingVertical: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E5E7EB',
   },
-  label: {
-    marginLeft: 12,
+  menuText: {
+    marginLeft: 14,
     fontSize: 16,
-    color: '#374151',
+    color: '#1F2937',
+    fontWeight: '600',
   },
 });

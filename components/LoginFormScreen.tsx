@@ -55,7 +55,7 @@ export default function LoginFormScreen() {
         await AsyncStorage.setItem('parent', JSON.stringify(minimalParentData));
       }
   
-      router.replace('/(tabs)/ParentDashboardScreen');
+      router.replace('/(drawer)/ParentDashboardScreen');
   
     } catch (error: any) {
       console.error('❌ Erreur login:', error.response?.data || error.message);
