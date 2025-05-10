@@ -1,29 +1,34 @@
 import { Drawer } from 'expo-router/drawer';
 import React, { useEffect, useState } from 'react';
 import CustomDrawerContent from '../CustomDrawerContent';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import * as jwt_decode from 'jwt-decode';
+import { getParentById } from '@/services/parentService';
 
-interface JwtPayload {
+interface Parent {
   nom: string;
   prenom: string;
   email: string;
 }
 
 export default function DrawerLayout() {
-const [user, setUser] = useState<JwtPayload>({ nom: '', prenom: '', email: '' });
-  useEffect(() => {
-    const fetchUserFromToken = async () => {
-      const token = await AsyncStorage.getItem('jwt');
-      if (token) {
-        const decoded = jwt_decode.jwtDecode<JwtPayload>(token);
-        setUser(decoded);
+    const [user, setUser] = useState<Parent>({ nom: '', prenom: '', email: '' });
+
+   useEffect(() => {
+    const fetchParent = async () => {
+      try {
+        const parent = await getParentById();
+        setUser({
+          nom: parent.nom,
+          prenom: parent.prenom,
+          email: parent.email,
+        });
+        console.log("👤 Parent chargé dans DrawerLayout:", parent);
+      } catch (error) {
+        console.error('❌ Erreur récupération parent drawer:', error);
       }
     };
 
-    fetchUserFromToken();
+    fetchParent();
   }, []);
-
   return (
     <Drawer
         drawerContent={(props) => <CustomDrawerContent {...props} user={user} />}
