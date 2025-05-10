@@ -1,65 +1,19 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, ActivityIndicator, Alert, TouchableOpacity } from 'react-native';
-import * as Linking from 'expo-linking';
+import { View, Text, StyleSheet, ActivityIndicator, TouchableOpacity, Image } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import axios from 'axios';
-import Constants from 'expo-constants';
-
-const API_BASE_URL = Constants?.expoConfig?.extra?.apiUrl ?? 'http://192.168.100.199:8080';
 
 export default function PaymentConfirmationScreen() {
   const router = useRouter();
   const params = useLocalSearchParams();
-  const [status, setStatus] = useState<'pending' | 'paid' | 'failed' | 'unknown'>('pending');
-  const [loading, setLoading] = useState(true);
-  const [reservationId, setReservationId] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [status, setStatus] = useState<'success' | 'failed' | 'unknown'>('unknown');
 
-  // Récupère reservationId depuis l'URL (deep link ou navigation)
   useEffect(() => {
-    if (params?.reservationId) {
-      setReservationId(params.reservationId as string);
+    if (params?.status === 'success' || params?.status === 'failed') {
+      setStatus(params.status as 'success' | 'failed');
     } else {
-      // fallback: tente de parser l'URL manuellement
-      const url = Linking.useURL();
-      if (url) {
-        const parsed = Linking.parse(url);
-        if (parsed.queryParams && parsed.queryParams.reservationId) {
-          setReservationId(parsed.queryParams.reservationId as string);
-        }
-      }
+      setStatus('unknown');
     }
   }, [params]);
-
-  // Recharge le statut de la réservation si reservationId change
-  useEffect(() => {
-    const fetchStatus = async () => {
-      if (!reservationId) {
-        setLoading(false);
-        setStatus('unknown');
-        return;
-      }
-      setLoading(true);
-      setError(null);
-      try {
-        const res = await axios.get(`${API_BASE_URL}/api/reservations/${reservationId}`);
-        const reservation = res.data;
-        if (reservation.status === 'PAID') {
-          setStatus('paid');
-        } else if (reservation.status === 'FAILED') {
-          setStatus('failed');
-        } else {
-          setStatus('pending');
-        }
-      } catch (err: any) {
-        setError('Erreur lors de la vérification du paiement.');
-        setStatus('unknown');
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchStatus();
-  }, [reservationId]);
 
   const handleGoHome = () => {
     router.replace('/(tabs)/ParentDashboardScreen');
@@ -67,22 +21,11 @@ export default function PaymentConfirmationScreen() {
 
   return (
     <View style={styles.container}>
-      {loading ? (
+      {status === 'success' ? (
         <View style={styles.centered}>
-          <ActivityIndicator size="large" color="#6B46C1" />
-          <Text style={styles.text}>Vérification du paiement...</Text>
-        </View>
-      ) : error ? (
-        <View style={styles.centered}>
-          <Text style={styles.errorText}>{error}</Text>
-          <TouchableOpacity style={styles.button} onPress={handleGoHome}>
-            <Text style={styles.buttonText}>Retour à l'accueil</Text>
-          </TouchableOpacity>
-        </View>
-      ) : status === 'paid' ? (
-        <View style={styles.centered}>
-          <Text style={styles.successText}>✅ Paiement confirmé !</Text>
-          <Text style={styles.text}>Merci pour votre paiement.</Text>
+          <Text style={styles.successText}>✅ Paiement réussi !</Text>
+          <Text style={styles.text}>Merci pour votre réservation.</Text>
+          <Image source={require('../../assets/images/confirmation.png')} style={styles.image} resizeMode="contain" />
           <TouchableOpacity style={styles.button} onPress={handleGoHome}>
             <Text style={styles.buttonText}>Retour à l'accueil</Text>
           </TouchableOpacity>
@@ -90,16 +33,15 @@ export default function PaymentConfirmationScreen() {
       ) : status === 'failed' ? (
         <View style={styles.centered}>
           <Text style={styles.errorText}>❌ Paiement échoué.</Text>
+          <Text style={styles.text}>Veuillez réessayer ou utiliser un autre moyen de paiement.</Text>
           <TouchableOpacity style={styles.button} onPress={handleGoHome}>
             <Text style={styles.buttonText}>Retour à l'accueil</Text>
           </TouchableOpacity>
         </View>
       ) : (
         <View style={styles.centered}>
-          <Text style={styles.text}>Statut du paiement : {status}</Text>
-          <TouchableOpacity style={styles.button} onPress={handleGoHome}>
-            <Text style={styles.buttonText}>Retour à l'accueil</Text>
-          </TouchableOpacity>
+          <ActivityIndicator size="large" color="#6B46C1" />
+          <Text style={styles.text}>Chargement du statut...</Text>
         </View>
       )}
     </View>
@@ -150,5 +92,11 @@ const styles = StyleSheet.create({
     color: 'white',
     fontWeight: 'bold',
     fontSize: 16,
+  },
+  image: {
+    width: 200,
+    height: 200,
+    marginTop: 20,
+    marginBottom: 20,
   },
 });

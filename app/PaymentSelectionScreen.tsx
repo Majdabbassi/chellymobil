@@ -19,13 +19,15 @@ import axios from 'axios';
 import * as Linking from 'expo-linking';
 import Constants from 'expo-constants';
 import { AdherentDTO } from '@/types/AdherentDTO';
+import { Calendar } from 'react-native-calendars';
+import { getAllActivities } from '@/services/avtivities';
 
 // Get API base URL from environment variables or fallback to a default
 const API_BASE_URL = Constants?.expoConfig?.extra?.apiUrl ?? 'http://192.168.64.138:8080';
 
 export default function PaymentSelectionScreen() {
   const months = ['Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin', 'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre'];
-
+  const [sessionDates, setSessionDates] = useState<string[]>([]); // ex: ['2025-05-10', '2025-05-15']
   const [loading, setLoading] = useState(false);
   const [adherents, setAdherents] = useState<AdherentDTO[]>([]);
   const [selectedAdherent, setSelectedAdherent] = useState<AdherentDTO | null>(null);
@@ -36,6 +38,10 @@ export default function PaymentSelectionScreen() {
   const [showLocalForm, setShowLocalForm] = useState(false);
   const [token, setToken] = useState('');
   const [error, setError] = useState(null);
+  const [paymentPeriodType, setPaymentPeriodType] = useState<'perSession' | 'perMonth' | 'per3Months'>('perMonth');
+  const [selectedDate, setSelectedDate] = useState<string>(''); // format YYYY-MM-DD
+  const [selectedSessionDetails, setSelectedSessionDetails] = useState<any>(null);
+  const [sessionsMap, setSessionsMap] = useState<Record<string, any>>({});
 
   const [parentInfo, setParentInfo] = useState({
     firstName: '',
@@ -43,7 +49,7 @@ export default function PaymentSelectionScreen() {
     email: '',
     phoneNumber: ''
   });
-  // Removed duplicate declaration of selectedAdherent
+  
   // Function to handle API errors
   const handleApiError = useCallback((error: any, customMessage = 'Une erreur est survenue') => {
     console.error(customMessage, error);
@@ -52,7 +58,57 @@ export default function PaymentSelectionScreen() {
     Alert.alert('Erreur', errorMessage);
     setLoading(false);
   }, []);
-
+  useEffect(() => {
+    if (selectedAdherent) {
+      handleAdherentSelect(selectedAdherent);
+    }
+  }, [paymentPeriodType]);
+  
+  useEffect(() => {
+    const loadSessionsForActivity = async () => {
+      if (paymentPeriodType !== 'perSession' || selectedActivities.length !== 1) {
+        setSelectedDate('');
+        setSelectedSessionDetails(null);
+        setSessionDates([]);
+        setSessionsMap({});
+        return;
+      }
+  
+      const selectedActivity = availableActivities.find(a => a.nom === selectedActivities[0]);
+      if (!selectedActivity) return;
+  
+      try {
+        const response = await axios.get(
+          `${API_BASE_URL}/api/sessions/activite/${selectedActivity.id}`,
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          }
+        );
+  
+        const sessions = response.data;
+  
+        const map: Record<string, any> = {};
+        sessions.forEach((session: any) => {
+          const dateStr = session.dateTime.split('T')[0];
+          map[dateStr] = session;
+        });
+  
+        setSelectedDate('');
+        setSelectedSessionDetails(null);
+        setSessionDates(Object.keys(map));
+        setSessionsMap(map);
+  
+      } catch (error) {
+        console.error('Erreur chargement des sessions', error);
+      }
+    };
+  
+    loadSessionsForActivity();
+  }, [selectedActivities.join(','), paymentPeriodType, token, availableActivities]);
+  
+  
   // Load token from AsyncStorage
   useEffect(() => {
     const getToken = async () => {
@@ -159,59 +215,98 @@ export default function PaymentSelectionScreen() {
     };
   }, [token, handleApiError]);
 
+  // Reset selected months when payment period type changes
+  useEffect(() => {
+    setSelectedMonths([]);
+    setSelectedDate('');
+  }, [paymentPeriodType]);
   const handleAdherentSelect = useCallback(async (adherent: AdherentDTO) => {
     setSelectedAdherent(adherent);
     setSelectedActivities([]);
     setAvailableActivities([]);
     setLoading(true);
-    
+  
     try {
       if (!adherent || !adherent.id) {
         throw new Error('Adhérent invalide');
       }
-      
-      const activities = await getActivitiesByAdherent(adherent.id);
-      
+  
+      // Choix entre les activités du club (par séance) ou celles de l'adhérent
+      const activities = paymentPeriodType === 'perSession'
+        ? await getAllActivities()
+        : await getActivitiesByAdherent(adherent.id);
+  
       if (!Array.isArray(activities)) {
         throw new Error('Format de données invalide');
       }
-      
+  
       setAvailableActivities(
         activities.map(activity => ({
-          id: 'id' in activity && typeof activity.id === 'number' ? activity.id : 0, // Ensure `id` exists and is a number
+          id: 'id' in activity && typeof activity.id === 'number' ? activity.id : 0,
           nom: activity.nom,
           prix: activity.prix,
         }))
       );
-
+  
       const pricesDict = activities.reduce<Record<string, number>>((dict, activity) => {
         if (activity && activity.nom && typeof activity.prix === 'number') {
           dict[activity.nom] = activity.prix;
         }
         return dict;
       }, {});
-      
+  
       setActivityPrices(pricesDict);
     } catch (err) {
       handleApiError(err, 'Erreur lors du chargement des activités');
     } finally {
       setLoading(false);
     }
-  }, [handleApiError]);
+  }, [handleApiError, paymentPeriodType]);
+  
 
   const calculateTotal = useCallback(() => {
-    return selectedActivities.reduce((total, name) => {
-      const prix = activityPrices[name] || 0;
-      return total + prix * selectedMonths.length;
-    }, 0);
-  }, [selectedActivities, activityPrices, selectedMonths]);
+    let total = 0;
+  
+    switch (paymentPeriodType) {
+      case 'perSession':
+        if (selectedDate && selectedSessionDetails?.prix != null) {
+          total = selectedSessionDetails.prix;
+        }
+        break;
+  
+      case 'perMonth':
+        total = selectedActivities.reduce((sum, name) => {
+          return sum + (activityPrices[name] || 0) * selectedMonths.length;
+        }, 0);
+        break;
+  
+      case 'per3Months':
+        total = selectedActivities.reduce((sum, name) => {
+          return sum + (activityPrices[name] || 0) * selectedMonths.length * 3;
+        }, 0);
+        break;
+    }
+  
+    return total;
+  }, [selectedActivities, activityPrices, selectedMonths, paymentPeriodType, selectedDate, selectedSessionDetails]);
+  
 
   const isFormComplete = useCallback(() => {
-    return selectedAdherent && 
-           selectedActivities.length > 0 && 
-           selectedMonths.length > 0 &&
-           !loading;
-  }, [selectedAdherent, selectedActivities, selectedMonths, loading]);
+    if (!selectedAdherent || selectedActivities.length === 0 || loading) {
+      return false;
+    }
+    
+    // Vérifier les conditions selon le type de paiement
+    switch(paymentPeriodType) {
+      case 'perSession':
+        return !!selectedDate; // Une date doit être sélectionnée
+      case 'perMonth':
+      case 'per3Months':
+        return selectedMonths.length > 0; // Au moins un mois doit être sélectionné
+      default:
+        return false;
+    }
+  }, [selectedAdherent, selectedActivities, loading, paymentPeriodType, selectedDate, selectedMonths]);
 
   const validateEmail = (email: string) => {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -239,7 +334,7 @@ export default function PaymentSelectionScreen() {
 
   const handleKonnectPayment = useCallback(async () => {
     if (!isFormComplete()) {
-      Alert.alert('Information incomplète', 'Veuillez sélectionner un adhérent, au moins une activité et un mois.');
+      Alert.alert('Information incomplète', 'Veuillez compléter toutes les informations nécessaires.');
       return;
     }
   
@@ -288,9 +383,16 @@ export default function PaymentSelectionScreen() {
         throw new Error("Aucune session future trouvée pour l'activité sélectionnée.");
       }
   
-      // Calculer le total pour cette activité uniquement
-      const activityPrice = selectedActivity.prix || 0;
-      const total = Math.round(activityPrice * selectedMonths.length * 100); // en centimes
+      // Calculer le total
+      const total = Math.round(calculateTotal() * 100); // en centimes
+      
+      // Description du paiement selon le type de période
+      let paymentDescription;
+      if (paymentPeriodType === 'perSession') {
+        paymentDescription = `Paiement de séance ${selectedActivity.nom} (${selectedDate}) pour ${selectedAdherent.prenom}`;
+      } else {
+        paymentDescription = `Paiement de ${selectedActivity.nom} (${selectedMonths.join(', ')}) pour ${selectedAdherent.prenom}`;
+      }
   
       const paymentResponse = await axios.post(
         `${API_BASE_URL}/api/konnect/pay`,
@@ -302,7 +404,7 @@ export default function PaymentSelectionScreen() {
           lastName: parentInfo.lastName,
           email: parentInfo.email,
           phoneNumber: parentInfo.phoneNumber,
-          description: `Paiement de ${selectedActivity.nom} (${selectedMonths.join(', ')}) pour ${selectedAdherent.prenom}`
+          description: paymentDescription
         },
         {
           headers: {
@@ -336,13 +438,16 @@ export default function PaymentSelectionScreen() {
     selectedMonths,
     token,
     parentInfo,
-    handleApiError
+    handleApiError,
+    calculateTotal,
+    paymentPeriodType,
+    selectedDate
   ]);
   
 
   const handleLocalPayment = useCallback(async () => {
     if (!isFormComplete()) {
-      Alert.alert('Information incomplète', 'Veuillez sélectionner un adhérent, au moins une activité et un mois.');
+      Alert.alert('Information incomplète', 'Veuillez compléter toutes les informations nécessaires.');
       return;
     }
 
@@ -375,14 +480,29 @@ export default function PaymentSelectionScreen() {
       if (!token) {
         throw new Error('Session expirée');
       }
+      
+      // Préparer les données selon le type de paiement
+      let paymentData: {
+        activiteIds: number[];
+        payInCash: boolean;
+        months: string[];
+        sessionDate?: string;
+      } = {
+        activiteIds: selectedActivityIds,
+        payInCash: true,
+        months: selectedMonths, // <--- inutile ici si écrasé après
+      };
+      
+      if (paymentPeriodType === 'perSession') {
+        paymentData['sessionDate'] = selectedDate;
+      } else {
+        paymentData['months'] = selectedMonths;
+      }
+      
 
       const response = await axios.post(
         `${API_BASE_URL}/api/reservations/by-parent/${selectedAdherent.id}`,
-        {
-          activiteIds: selectedActivityIds,
-          payInCash: true,
-          months: selectedMonths
-        },
+        paymentData,
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -408,10 +528,24 @@ export default function PaymentSelectionScreen() {
     selectedAdherent, 
     availableActivities, 
     selectedActivities, 
-    selectedMonths, 
+    selectedMonths,
+    selectedDate,
+    paymentPeriodType,
     token, 
     handleApiError
   ]);
+  
+  // Fonction pour formater la date sélectionnée en format lisible
+  const formatSelectedDate = (dateString) => {
+    if (!dateString) return '';
+    
+    try {
+      const date = new Date(dateString);
+      return `${date.getDate()}/${date.getMonth() + 1}/${date.getFullYear()}`;
+    } catch (e) {
+      return dateString;
+    }
+  };
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -452,6 +586,131 @@ export default function PaymentSelectionScreen() {
         contentContainerStyle={styles.container}
         keyboardShouldPersistTaps="handled"
       >
+        {/* Type de paiement */}
+        <View style={styles.contentCard}>
+          <Text style={styles.sectionTitle}>Type de paiement</Text>
+          <View style={styles.optionsGrid}>
+            {[
+              { label: 'Par séance', value: 'perSession' },
+              { label: 'Par mois', value: 'perMonth' },
+              { label: '3 mois', value: 'per3Months' }
+            ].map(option => (
+              <TouchableOpacity
+                key={option.value}
+                style={[
+                  styles.option,
+                  paymentPeriodType === option.value && styles.selected
+                ]}
+                onPress={() => setPaymentPeriodType(option.value as 'perSession' | 'perMonth' | 'per3Months')}
+              >
+                <Text style={[
+                  styles.optionText,
+                  paymentPeriodType === option.value && styles.selectedText
+                ]}>
+                  {option.label}
+                </Text>
+                {paymentPeriodType === option.value && (
+                  <Ionicons name="checkmark-circle" size={20} color="#6B46C1" style={styles.checkIcon} />
+                )}
+              </TouchableOpacity>
+            ))}
+          </View>
+        </View>
+
+        {/* Sélection de la période selon le type de paiement */}
+        {paymentPeriodType === 'perSession' ? (
+          <View style={styles.contentCard}>
+            <Text style={styles.sectionTitle}>Date de la séance</Text>
+            <Calendar
+  onDayPress={(day) => {
+    setSelectedDate(day.dateString);
+    const session = sessionsMap[day.dateString];
+    setSelectedSessionDetails(session || null);
+  }}
+  markedDates={{
+    ...Object.keys(sessionsMap).reduce((acc, date) => {
+      const isPast = new Date(date) < new Date(new Date().toDateString());
+      const isSelected = selectedDate === date;
+
+      acc[date] = {
+        marked: true,
+        selected: isSelected,
+        selectedColor: isSelected ? '#6B46C1' : undefined,
+        dotColor: isPast ? '#e53e3e' : '#6B46C1',
+        disableTouchEvent: false,
+      };
+      return acc;
+    }, {} as Record<string, any>)
+  }}
+  theme={{
+    selectedDayBackgroundColor: '#6B46C1',
+    arrowColor: '#6B46C1',
+    todayTextColor: '#6B46C1',
+    textMonthFontWeight: 'bold',
+    textDayFontSize: 16,
+  }}
+/>
+
+
+{selectedSessionDetails && (
+  <View style={{ marginTop: 12, padding: 12, backgroundColor: '#f0f0ff', borderRadius: 8 }}>
+    <Text style={{ fontWeight: 'bold' }}>Détails de la séance :</Text>
+    <Text>🕒 Heure : {new Date(selectedSessionDetails.dateTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</Text>
+    <Text>🏟️ Terrain : {selectedSessionDetails.lieu?.nom || 'N/A'}</Text>
+    <Text>🎯 Activité : {selectedSessionDetails.activite?.nom || '-'}</Text>
+    <Text>💰 Prix : {selectedSessionDetails.prix != null ? `${selectedSessionDetails.prix} €` : '-'}</Text>
+    </View>
+)}
+
+
+
+
+
+          </View>
+        ) : (
+          <View style={styles.contentCard}>
+            <View style={styles.section}>
+              <View style={styles.sectionHeader}>
+                <Text style={styles.sectionTitle}>Mois à payer</Text>
+              </View>
+              <View style={styles.optionsGrid}>
+                {months.map(month => (
+                  <TouchableOpacity
+                    key={month}
+                    style={[
+                      styles.option,
+                      selectedMonths.includes(month) && styles.selected
+                    ]}
+                    onPress={() =>
+                      setSelectedMonths(prev =>
+                        prev.includes(month)
+                          ? prev.filter(m => m !== month)
+                          : [...prev, month]
+                      )
+                    }
+                    disabled={loading}
+                    accessible={true}
+                    accessibilityLabel={`Mois de ${month}`}
+                    accessibilityHint={`${selectedMonths.includes(month) ? 'Désélectionner' : 'Sélectionner'} le mois de ${month}`}
+                    accessibilityRole="button"
+                    accessibilityState={{ selected: selectedMonths.includes(month) }}
+                  >
+                    <Text style={[
+                      styles.optionText,
+                      selectedMonths.includes(month) && styles.selectedText
+                    ]}>
+                      {month}
+                    </Text>
+                    {selectedMonths.includes(month) && (
+                      <Ionicons name="checkmark-circle" size={20} color="#6B46C1" style={styles.checkIcon} />
+                    )}
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+          </View>
+        )}
+
         {/* Adhérents */}
         <View style={styles.contentCard}>
           <View style={styles.section}>
@@ -490,47 +749,6 @@ export default function PaymentSelectionScreen() {
             ) : !loading && (
               <Text style={styles.emptyText}>Aucun adhérent disponible</Text>
             )}
-          </View>
-        </View>
-
-        {/* Mois */}
-        <View style={styles.contentCard}>
-          <View style={styles.section}>
-            <View style={styles.sectionHeader}>
-              <Text style={styles.sectionTitle}>Mois à payer</Text>
-            </View>
-            <View style={styles.optionsGrid}>
-              {months.map(month => (
-                <TouchableOpacity
-                  key={month}
-                  style={[
-                    styles.option,
-                    selectedMonths.includes(month) && styles.selected
-                  ]}
-                  onPress={() =>
-                    setSelectedMonths(prev =>
-                      prev.includes(month) ? prev.filter(m => m !== month) : [...prev, month]
-                    )
-                  }
-                  disabled={loading}
-                  accessible={true}
-                  accessibilityLabel={`Mois de ${month}`}
-                  accessibilityHint={`${selectedMonths.includes(month) ? 'Désélectionner' : 'Sélectionner'} le mois de ${month}`}
-                  accessibilityRole="button"
-                  accessibilityState={{ selected: selectedMonths.includes(month) }}
-                >
-                  <Text style={[
-                    styles.optionText,
-                    selectedMonths.includes(month) && styles.selectedText
-                  ]}>
-                    {month}
-                  </Text>
-                  {selectedMonths.includes(month) && (
-                    <Ionicons name="checkmark-circle" size={20} color="#6B46C1" style={styles.checkIcon} />
-                  )}
-                </TouchableOpacity>
-              ))}
-            </View>
           </View>
         </View>
 
@@ -600,7 +818,9 @@ export default function PaymentSelectionScreen() {
           <View style={styles.summaryRow}>
             <Text style={styles.summaryLabel}>Période</Text>
             <Text style={styles.summaryValue}>
-              {selectedMonths.length > 0 ? selectedMonths.join(', ') : '-'}
+              {paymentPeriodType === 'perSession' 
+                ? (selectedDate ? formatSelectedDate(selectedDate) : '-')
+                : (selectedMonths.length > 0 ? selectedMonths.join(', ') : '-')}
             </Text>
           </View>
           
