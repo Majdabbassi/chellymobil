@@ -50,6 +50,7 @@ export default function LoginFormScreen() {
         const { id: parentId, nom, prenom, email, telephone } = parentResponse.data as ParentData;
 
         const minimalParentData = { id: parentId, nom, prenom, email, telephone };
+        await AsyncStorage.setItem('parentId', parentId.toString());
 
         await AsyncStorage.setItem('parent', JSON.stringify(minimalParentData));
       }

@@ -11,7 +11,6 @@ import { CartProvider } from '@/contexts/CartContext';
 
 export default function TabLayout() {
   const colorScheme = useColorScheme();
-
   return (
     <CartProvider>
       <Tabs

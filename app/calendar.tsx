@@ -24,7 +24,7 @@ import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // URL de base à configurer depuis l'environnement ou les paramètres de l'application
-const BASE_URL = 'http://192.168.100.4:8080/api/sessions';
+const BASE_URL = 'http://192.168.64.138:8080/api/sessions';
 
 // Interfaces améliorées
 interface Adherent {
@@ -152,7 +152,7 @@ export default function CalendarScreen() {
       }
       
       console.log('Fetching competitions for parentId:', parentId);
-      const res = await axios.get(`http://192.168.100.4:8080/api/competitions/competitions/parent/${parentId}`, {
+      const res = await axios.get(`http://192.168.64.138:8080/api/competitions/competitions/parent/${parentId}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       
@@ -175,7 +175,7 @@ export default function CalendarScreen() {
       }
       
       console.log('Fetching informations for parentId:', parentId);
-      const response = await axios.get(`http://192.168.100.4:8080/api/informations/by-parent/${parentId}`, {
+      const response = await axios.get(`http://192.168.64.138:8080/api/informations/by-parent/${parentId}`, {
         headers: {
           Authorization: `Bearer ${token}`,
         },
@@ -204,7 +204,7 @@ export default function CalendarScreen() {
         }
   
         // 👉 Appel API pour récupérer le parent et ses adhérents
-        const response = await axios.get('http://192.168.100.4:8080/api/parents/me', {
+        const response = await axios.get('http://192.168.64.138:8080/api/parents/me', {
           headers: {
             Authorization: `Bearer ${token}`,
           },

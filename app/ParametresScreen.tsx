@@ -353,7 +353,7 @@ const getUserIdFromStorage = async (): Promise<number | null> => {
   
       const token = await AsyncStorage.getItem('token');
   
-      const response = await axios.post('http://192.168.100.4:8080/api/documents/upload', formData, {
+      const response = await axios.post('http://192.168.64.138:8080/api/documents/upload', formData, {
         headers: {
           'Content-Type': 'multipart/form-data',
           'Authorization': `Bearer ${token}`,
