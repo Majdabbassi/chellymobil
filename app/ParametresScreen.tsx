@@ -134,7 +134,7 @@ const [enfants, setEnfants] = useState<AdherentDTO[]>([]);
     };
     checkAuthStatus();
   }, []);
-  <TouchableOpacity
+<TouchableOpacity
   onPress={() => router.replace('/dashboard')}
   style={{ position: 'absolute', top: 40, left: 20, zIndex: 10 }}
 >
@@ -342,50 +342,46 @@ const getUserIdFromStorage = async (): Promise<number | null> => {
     return blob;
   };
   
-  const handleUploadDocument = async () => {
-    try {
-      const result = await DocumentPicker.getDocumentAsync({
-        type: '*/*',
-        copyToCacheDirectory: true,
-      });
-  
-      if (result.canceled || !result.assets || result.assets.length === 0) {
-        console.log("Annulé par l'utilisateur ou aucun fichier sélectionné");
-        return;
-      }
-  
-      const file = result.assets[0];
-      const blob = await getBlobFromUri(file.uri);
-  
-      const formData = new FormData();
-      formData.append('file', blob, file.name || 'document.pdf');
-  
-      const token = await AsyncStorage.getItem('token');
-  
-   const response = await fetch(`${API_BASE_URL}/api/documents/upload`, {
-  method: 'POST',
-  headers: {
-    'Authorization': `Bearer ${token}`,
-  },
-  body: formData,
-});
+const handleUploadDocument = async () => {
+  try {
+    const result = await DocumentPicker.getDocumentAsync({
+      type: '*/*',
+      copyToCacheDirectory: true,
+    });
 
-      const response = await axios.post('http://192.168.64.138:8080/api/documents/upload', formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-          'Authorization': `Bearer ${token}`,
-        },
-      });
-  
-      console.log("✅ Upload réussi:", response.data);
-      Alert.alert("Succès", "Document uploadé avec succès !");
-      await loadDocuments();
-    } catch (error: any) {
-      console.error("❌ Erreur d'upload:", error.response?.data || error.message);
-      Alert.alert("Erreur", error.response?.data?.message || "Erreur d'upload du document.");
+    if (result.canceled || !result.assets || result.assets.length === 0) {
+      console.log("Annulé par l'utilisateur ou aucun fichier sélectionné");
+      return;
     }
-  };
-  
+
+    const file = result.assets[0];
+    const blob = await getBlobFromUri(file.uri);
+
+    const formData = new FormData();
+    formData.append('file', {
+      uri: file.uri,
+      name: file.name || 'document.pdf',
+      type: file.mimeType || 'application/pdf',
+    } as any); // `as any` pour éviter une erreur TS sur le champ `uri`
+
+    const token = await AsyncStorage.getItem('token');
+
+    const response = await axios.post(`${API_BASE_URL}/api/documents/upload`, formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+        'Authorization': `Bearer ${token}`,
+      },
+    });
+
+    console.log("✅ Upload réussi:", response.data);
+    Alert.alert("Succès", "Document uploadé avec succès !");
+    await loadDocuments();
+  } catch (error: any) {
+    console.error("❌ Erreur d'upload:", error.response?.data || error.message);
+    Alert.alert("Erreur", error.response?.data?.message || "Erreur d'upload du document.");
+  }
+};
+
   
   const handleAddChild = async () => {
     if (!newChild.prenom || !newChild.nom || !newChild.dateNaissance) {

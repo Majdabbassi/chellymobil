@@ -8,11 +8,8 @@ import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import { registerForPushNotificationsAsync } from '@/services/firebase-notifications';
 import * as Notifications from 'expo-notifications';
-<<<<<<< HEAD:app/(tabs)/ParentDashboardScreen.tsx
 import API from '@/services/api';
-=======
 
->>>>>>> 7247ae8c5682a5dc3ac8097e5cf313d9ead1a58e:app/(drawer)/ParentDashboardScreen.tsx
 const { width } = Dimensions.get('window');
 
 // Define interfaces outside of the component

@@ -3,7 +3,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import Constants from 'expo-constants';
 
 // ✅ Centraliser l'IP ici (priorité à app.json / app.config.js si défini)
-const IP_ADDRESS = Constants.expoConfig?.extra?.apiIp || '192.168.1.249';
+const IP_ADDRESS = Constants.expoConfig?.extra?.apiIp || '192.168.100.4';
 const PORT = '8080';
 const API_BASE_URL = `http://${IP_ADDRESS}:${PORT}/api`;
 

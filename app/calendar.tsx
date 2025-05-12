@@ -128,7 +128,6 @@ export default function CalendarScreen() {
     return date.toISOString().split('T')[0];
   };
 
-<<<<<<< HEAD
 const fetchCompetitions = async (parentId: number) => {
   try {
     console.log('Fetching competitions for parentId:', parentId);
@@ -162,12 +161,101 @@ const getInformationsByParent = async (parentId: number) => {
 };
  
   // Charger les données du parent et ses adhérents
+useEffect(() => {
+  const fetchCompetitions = async (parentId: number) => {
+    try {
+      const token = await AsyncStorage.getItem('token');
+      if (!token) {
+        console.error('Aucun token disponible pour les compétitions');
+        return;
+      }
 
+      console.log('Fetching competitions for parentId:', parentId);
+      const res = await axios.get(`http://192.168.64.138:8080/api/competitions/competitions/parent/${parentId}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+
+      console.log('Competitions fetched:', JSON.stringify(res.data));
+      setCompetitions(res.data);
+    } catch (err) {
+      const error = err as any;
+      console.error("Erreur compétitions:", error);
+      console.error('Status:', error.response?.status);
+      console.error('Data:', JSON.stringify(error.response?.data));
+    }
+  };
+
+  const getInformationsByParent = async (parentId: number) => {
+    try {
+      const token = await AsyncStorage.getItem('token');
+      if (!token) {
+        console.error('Aucun token disponible pour les informations');
+        return [];
+      }
+
+      console.log('Fetching informations for parentId:', parentId);
+      const response = await axios.get(`http://192.168.64.138:8080/api/informations/by-parent/${parentId}`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      console.log('Informations fetched:', JSON.stringify(response.data));
+      return response.data;
+    } catch (err) {
+      const error = err as any;
+      console.error('Erreur lors du chargement des informations :', error);
+      console.error('Status:', error.response?.status);
+      console.error('Data:', JSON.stringify(error.response?.data));
+      return [];
+    }
+  };
+
+  const loadParentData = async () => {
+    try {
+      const response = await API.get('/parents/me'); // ✅ Token + baseURL gérés automatiquement
+      const parentData = response.data;
+
+      await AsyncStorage.setItem('parent', JSON.stringify(parentData));
+      setParentData(parentData);
+
+      console.log('📦 parentData depuis l\'API:', parentData);
+      console.log('👧 Liste des adherents:', parentData.adherents);
+
+      if (parentData?.id) {
+        await fetchCompetitions(parentData.id);
+        const infos = await getInformationsByParent(parentData.id);
+        setInformations(infos); // si tu as un setInformations
+      }
+    } catch (err) {
+      console.error("Erreur lors du chargement du parent:", err);
+      setError("Impossible de charger les données du parent");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  loadParentData();
+}, []);
+
+  // Charger les données du parent et ses adhérents
 useEffect(() => {
   const loadParentData = async () => {
     try {
+      const token = await AsyncStorage.getItem('token');
+      if (!token) {
+        setError("Token non disponible");
+        setLoading(false);
+        return;
+      }
+
       // 👉 Appel API pour récupérer le parent et ses adhérents
-      const response = await API.get('/parents/me'); // ✅ Token + baseURL gérés automatiquement
+      const response = await axios.get('http://192.168.64.138:8080/api/parents/me', {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
       const parentData = response.data;
 
       // 📝 Stockage dans AsyncStorage pour usage ultérieur
@@ -180,101 +268,6 @@ useEffect(() => {
       // ✅ Chargement compétitions
       if (parentData?.id) {
         await fetchCompetitions(parentData.id);
-=======
-  const fetchCompetitions = async (parentId: number) => {
-    try {
-      const token = await AsyncStorage.getItem('token');
-      if (!token) {
-        console.error('Aucun token disponible pour les compétitions');
-        return;
-      }
-      
-      console.log('Fetching competitions for parentId:', parentId);
-      const res = await axios.get(`http://192.168.64.138:8080/api/competitions/competitions/parent/${parentId}`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      
-      console.log('Competitions fetched:', JSON.stringify(res.data));
-      setCompetitions(res.data);
-    } catch (err) {
-      const error = err as any;
-      console.error("Erreur compétitions:", error);
-      console.error('Status:', error.response?.status);
-      console.error('Data:', JSON.stringify(error.response?.data));
-    }
-  };
-  
-  const getInformationsByParent = async (parentId: number) => {
-    try {
-      const token = await AsyncStorage.getItem('token');
-      if (!token) {
-        console.error('Aucun token disponible pour les informations');
-        return [];
-      }
-      
-      console.log('Fetching informations for parentId:', parentId);
-      const response = await axios.get(`http://192.168.64.138:8080/api/informations/by-parent/${parentId}`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
-      
-      console.log('Informations fetched:', JSON.stringify(response.data));
-      return response.data;
-    } catch (err) {
-      const error = err as any;
-      console.error('Erreur lors du chargement des informations :', error);
-      console.error('Status:', error.response?.status);
-      console.error('Data:', JSON.stringify(error.response?.data));
-      return [];
-    }
-  };
- 
-  // Charger les données du parent et ses adhérents
-  useEffect(() => {
-    const loadParentData = async () => {
-      try {
-        const token = await AsyncStorage.getItem('token');
-        if (!token) {
-          setError("Token non disponible");
-          setLoading(false);
-          return;
-        }
-  
-        // 👉 Appel API pour récupérer le parent et ses adhérents
-        const response = await axios.get('http://192.168.64.138:8080/api/parents/me', {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        });
-  
-        const parentData = response.data;
-  
-        // 📝 Stockage dans AsyncStorage pour usage ultérieur
-        await AsyncStorage.setItem('parent', JSON.stringify(parentData));
-        setParentData(parentData);
-  
-        console.log('📦 parentData depuis l\'API:', parentData);
-        console.log('👧 Liste des adherents:', parentData.adherents);
-  
-        // ✅ Chargement compétitions
-        if (parentData?.id) {
-          await fetchCompetitions(parentData.id);
-        }
-  
-        // ✅ Chargement du premier adhérent et ses séances
-        if (parentData.adherents && parentData.adherents.length > 0) {
-          const firstAdherent = parentData.adherents[0];
-          setCurrentAdherent(firstAdherent);
-          await loadSessions(currentMonth, currentYear, firstAdherent.id);
-        }
-  
-      } catch (err) {
-        console.error("Erreur lors du chargement des données du parent:", err);
-        setError("Impossible de charger les données du parent");
-      } finally {
-        setLoading(false);
->>>>>>> 7247ae8c5682a5dc3ac8097e5cf313d9ead1a58e
       }
 
       // ✅ Chargement du premier adhérent et ses séances
@@ -294,6 +287,7 @@ useEffect(() => {
 
   loadParentData();
 }, []);
+
 
   // Charger les informations quand les données du parent sont disponibles
   useEffect(() => {
