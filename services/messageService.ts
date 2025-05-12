@@ -1,13 +1,9 @@
-import axios, { AxiosError, AxiosRequestConfig } from 'axios';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import API from './api';
+import { AxiosError } from 'axios';
 
-// URL du backend exposé via ngrok (mise à jour le 03/05/2025)
-const BASE_URL = 'http://192.168.100.4:8080/api/messages';
-
-// Instance axios configurée
-const API = axios.create({ baseURL: BASE_URL });
-
-// Gestion centralisée des erreurs Axios
+/* ------------------------------------------------------------------ */
+/* 🔁 Gestion centralisée des erreurs                                 */
+/* ------------------------------------------------------------------ */
 const handleAxiosError = (message: string, error: unknown) => {
   const axiosError = error as AxiosError;
   console.error(message, axiosError);
@@ -22,32 +18,12 @@ const handleAxiosError = (message: string, error: unknown) => {
   }
 };
 
-// Récupère la config axios avec headers d'authent
-async function getAuthConfig(): Promise<AxiosRequestConfig | null> {
-  try {
-    const token = await AsyncStorage.getItem('token');
-    if (!token) {
-      console.error('No token found');
-      return null;
-    }
-    return {
-      headers: {
-        Authorization: `Bearer ${token}`,
-        'Content-Type': 'application/json',
-      },
-    };
-  } catch (err) {
-    console.error('Error reading auth token:', err);
-    return null;
-  }
-}
-
-// 1. Récupérer tous les messages d’un utilisateur
+/* ------------------------------------------------------------------ */
+/* 1. 📩 Récupérer tous les messages d’un utilisateur                 */
+/* ------------------------------------------------------------------ */
 export const getAllMessages = async (userId: number) => {
-  const config = await getAuthConfig();
-  if (!config) return [];
   try {
-    const { data } = await API.get(`/all/${userId}`, config);
+    const { data } = await API.get(`/messages/all/${userId}`);
     return data;
   } catch (err) {
     handleAxiosError('Error fetching all messages:', err);
@@ -55,7 +31,9 @@ export const getAllMessages = async (userId: number) => {
   }
 };
 
-// 2. Recherche de messages avec filtres
+/* ------------------------------------------------------------------ */
+/* 2. 🔍 Recherche de messages avec filtres                           */
+/* ------------------------------------------------------------------ */
 export const searchMessages = async (
   userId: number,
   searchTerm?: string,
@@ -63,8 +41,6 @@ export const searchMessages = async (
   unreadOnly: boolean = false,
   groupOnly: boolean = false
 ) => {
-  const config = await getAuthConfig();
-  if (!config) return [];
   try {
     const params = {
       userId,
@@ -73,7 +49,7 @@ export const searchMessages = async (
       unreadOnly,
       groupOnly,
     };
-    const { data } = await API.get('/search', { ...config, params });
+    const { data } = await API.get('/messages/search', { params });
     return data;
   } catch (err) {
     handleAxiosError('Error searching messages:', err);
@@ -81,16 +57,16 @@ export const searchMessages = async (
   }
 };
 
-// 3. Conversation entre deux utilisateurs
+/* ------------------------------------------------------------------ */
+/* 3. 💬 Conversation entre deux utilisateurs                         */
+/* ------------------------------------------------------------------ */
 export const getConversation = async (
   senderId: number,
   receiverId: number
 ) => {
-  const config = await getAuthConfig();
-  if (!config) return [];
   try {
     const params = { senderId, receiverId };
-    const { data } = await API.get('/conversation', { ...config, params });
+    const { data } = await API.get('/messages/conversation', { params });
     return data;
   } catch (err) {
     handleAxiosError('Error fetching conversation:', err);
@@ -98,28 +74,28 @@ export const getConversation = async (
   }
 };
 
-// 4. Marquer un message comme lu/non lu
+/* ------------------------------------------------------------------ */
+/* 4. ✅ Marquer un message comme lu/non lu                            */
+/* ------------------------------------------------------------------ */
 export const markMessageAsSeen = async (
   messageId: number,
   seen: boolean
 ) => {
-  const config = await getAuthConfig();
-  if (!config) return;
   try {
     const params = { seen };
-    await API.put(`/${messageId}/seen`, null, { ...config, params });
+    await API.put(`/messages/${messageId}/seen`, null, { params });
   } catch (err) {
     handleAxiosError('Error marking message as seen:', err);
     throw err;
   }
 };
 
-// 5. Envoyer un message
+/* ------------------------------------------------------------------ */
+/* 5. ✉️ Envoyer un message                                           */
+/* ------------------------------------------------------------------ */
 export const sendMessage = async (messageData: any) => {
-  const config = await getAuthConfig();
-  if (!config) return null;
   try {
-    const { data } = await API.post('/sendMessage', messageData, config);
+    const { data } = await API.post('/messages/sendMessage', messageData);
     return data;
   } catch (err) {
     handleAxiosError('Error sending message:', err);
@@ -127,61 +103,61 @@ export const sendMessage = async (messageData: any) => {
   }
 };
 
-// 6. Supprimer un message individuel
+/* ------------------------------------------------------------------ */
+/* 6. 🗑️ Supprimer un message individuel                              */
+/* ------------------------------------------------------------------ */
 export const deleteMessage = async (messageId: number) => {
-  const config = await getAuthConfig();
-  if (!config) return;
   try {
-    await API.delete(`/${messageId}`, config);
+    await API.delete(`/messages/${messageId}`);
   } catch (err) {
     handleAxiosError('Error deleting message:', err);
     throw err;
   }
 };
 
-// 7. Supprimer une conversation entière
+/* ------------------------------------------------------------------ */
+/* 7. 🧹 Supprimer une conversation entière                           */
+/* ------------------------------------------------------------------ */
 export const deleteConversation = async (
   user1Id: number,
   user2Id: number
 ) => {
-  const config = await getAuthConfig();
-  if (!config) return;
   try {
     const params = { user1Id, user2Id };
-    await API.delete('/conversation', { ...config, params });
+    await API.delete('/messages/conversation', { params });
   } catch (err) {
     handleAxiosError('Error deleting conversation:', err);
     throw err;
   }
 };
 
-// 8. Archiver / Désarchiver une conversation
+/* ------------------------------------------------------------------ */
+/* 8. 📥 Archiver / Désarchiver une conversation                      */
+/* ------------------------------------------------------------------ */
 export const archiveConversation = async (
   user1Id: number,
   user2Id: number,
   archived: boolean
 ) => {
-  const config = await getAuthConfig();
-  if (!config) return;
   try {
     const params = { user1Id, user2Id, archived };
-    await API.put('/archive/conversation', null, { ...config, params });
+    await API.put('/messages/archive/conversation', null, { params });
   } catch (err) {
     handleAxiosError('Error archiving conversation:', err);
     throw err;
   }
 };
 
-// 9. Archiver / Désarchiver un message unique
+/* ------------------------------------------------------------------ */
+/* 9. 🗂️ Archiver / Désarchiver un message unique                     */
+/* ------------------------------------------------------------------ */
 export const archiveMessage = async (
   messageId: number,
   archived: boolean
 ) => {
-  const config = await getAuthConfig();
-  if (!config) return;
   try {
     const params = { archived };
-    await API.put(`/archive/${messageId}`, null, { ...config, params });
+    await API.put(`/messages/archive/${messageId}`, null, { params });
   } catch (err) {
     handleAxiosError('Error archiving message:', err);
     throw err;

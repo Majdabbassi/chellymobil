@@ -1,8 +1,10 @@
-import axios from 'axios';
+import API from './api'; // Assure-toi que le chemin est correct
 
-// URL du backend local
-const BASE_URL = 'http://192.168.100.4:8080';
-
+/**
+ * Récupère les sessions du calendrier selon les filtres fournis.
+ * @param params Objets de filtres facultatifs : coachId, adherentId, etc.
+ * @returns Liste des sessions formatées.
+ */
 export const getCalendarSessions = async (params: {
   coachId?: number;
   adherentId?: number;
@@ -13,8 +15,11 @@ export const getCalendarSessions = async (params: {
   month?: number;
   year?: number;
 }) => {
-  const response = await axios.get(`${BASE_URL}/api/sessions/calendar`, {
-    params,
-  });
-  return response.data;
+  try {
+    const response = await API.get('/sessions/calendar', { params });
+    return response.data;
+  } catch (error) {
+    console.error('❌ Erreur lors de la récupération des sessions du calendrier :', error);
+    throw error;
+  }
 };

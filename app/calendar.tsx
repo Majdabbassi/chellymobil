@@ -1,20 +1,3 @@
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, ActivityIndicator, FlatList, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
@@ -22,9 +5,9 @@ import { useRouter } from 'expo-router';
 import { Calendar } from 'react-native-calendars';
 import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import API from '@/services/api';
 
 // URL de base à configurer depuis l'environnement ou les paramètres de l'application
-const BASE_URL = 'http://192.168.100.4:8080/api/sessions';
 
 // Interfaces améliorées
 interface Adherent {
@@ -143,105 +126,77 @@ export default function CalendarScreen() {
     return date.toISOString().split('T')[0];
   };
 
-  const fetchCompetitions = async (parentId: number) => {
-    try {
-      const token = await AsyncStorage.getItem('token');
-      if (!token) {
-        console.error('Aucun token disponible pour les compétitions');
-        return;
-      }
-      
-      console.log('Fetching competitions for parentId:', parentId);
-      const res = await axios.get(`http://192.168.100.4:8080/api/competitions/competitions/parent/${parentId}`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      
-      console.log('Competitions fetched:', JSON.stringify(res.data));
-      setCompetitions(res.data);
-    } catch (err) {
-      const error = err as any;
-      console.error("Erreur compétitions:", error);
-      console.error('Status:', error.response?.status);
-      console.error('Data:', JSON.stringify(error.response?.data));
-    }
-  };
+const fetchCompetitions = async (parentId: number) => {
+  try {
+    console.log('Fetching competitions for parentId:', parentId);
+
+    const res = await API.get(`/competitions/competitions/parent/${parentId}`); // ✅ BaseURL et headers déjà gérés
+    console.log('Competitions fetched:', JSON.stringify(res.data));
+    
+    setCompetitions(res.data);
+  } catch (err: any) {
+    console.error("Erreur compétitions:", err);
+    console.error('Status:', err.response?.status);
+    console.error('Data:', JSON.stringify(err.response?.data));
+  }
+};
+
   
-  const getInformationsByParent = async (parentId: number) => {
-    try {
-      const token = await AsyncStorage.getItem('token');
-      if (!token) {
-        console.error('Aucun token disponible pour les informations');
-        return [];
-      }
-      
-      console.log('Fetching informations for parentId:', parentId);
-      const response = await axios.get(`http://192.168.100.4:8080/api/informations/by-parent/${parentId}`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
-      
-      console.log('Informations fetched:', JSON.stringify(response.data));
-      return response.data;
-    } catch (err) {
-      const error = err as any;
-      console.error('Erreur lors du chargement des informations :', error);
-      console.error('Status:', error.response?.status);
-      console.error('Data:', JSON.stringify(error.response?.data));
-      return [];
-    }
-  };
+const getInformationsByParent = async (parentId: number) => {
+  try {
+    console.log('Fetching informations for parentId:', parentId);
+    
+    const response = await API.get(`/informations/by-parent/${parentId}`); // ✅ IP et token gérés automatiquement
+    
+    console.log('Informations fetched:', JSON.stringify(response.data));
+    return response.data;
+  } catch (err: any) {
+    console.error('Erreur lors du chargement des informations :', err);
+    console.error('Status:', err.response?.status);
+    console.error('Data:', JSON.stringify(err.response?.data));
+    return [];
+  }
+};
  
   // Charger les données du parent et ses adhérents
-  useEffect(() => {
-    const loadParentData = async () => {
-      try {
-        const token = await AsyncStorage.getItem('token');
-        if (!token) {
-          setError("Token non disponible");
-          setLoading(false);
-          return;
-        }
-  
-        // 👉 Appel API pour récupérer le parent et ses adhérents
-        const response = await axios.get('http://192.168.100.4:8080/api/parents/me', {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        });
-  
-        const parentData = response.data;
-  
-        // 📝 Stockage dans AsyncStorage pour usage ultérieur
-        await AsyncStorage.setItem('parent', JSON.stringify(parentData));
-        setParentData(parentData);
-  
-        console.log('📦 parentData depuis l\'API:', parentData);
-        console.log('👧 Liste des adherents:', parentData.adherents);
-  
-        // ✅ Chargement compétitions
-        if (parentData?.id) {
-          await fetchCompetitions(parentData.id);
-        }
-  
-        // ✅ Chargement du premier adhérent et ses séances
-        if (parentData.adherents && parentData.adherents.length > 0) {
-          const firstAdherent = parentData.adherents[0];
-          setCurrentAdherent(firstAdherent);
-          await loadSessions(currentMonth, currentYear, firstAdherent.id);
-        }
-  
-      } catch (err) {
-        console.error("Erreur lors du chargement des données du parent:", err);
-        setError("Impossible de charger les données du parent");
-      } finally {
-        setLoading(false);
+
+useEffect(() => {
+  const loadParentData = async () => {
+    try {
+      // 👉 Appel API pour récupérer le parent et ses adhérents
+      const response = await API.get('/parents/me'); // ✅ Token + baseURL gérés automatiquement
+      const parentData = response.data;
+
+      // 📝 Stockage dans AsyncStorage pour usage ultérieur
+      await AsyncStorage.setItem('parent', JSON.stringify(parentData));
+      setParentData(parentData);
+
+      console.log('📦 parentData depuis l\'API:', parentData);
+      console.log('👧 Liste des adherents:', parentData.adherents);
+
+      // ✅ Chargement compétitions
+      if (parentData?.id) {
+        await fetchCompetitions(parentData.id);
       }
-    };
-  
-    loadParentData();
-  }, []);
-  
+
+      // ✅ Chargement du premier adhérent et ses séances
+      if (parentData.adherents && parentData.adherents.length > 0) {
+        const firstAdherent = parentData.adherents[0];
+        setCurrentAdherent(firstAdherent);
+        await loadSessions(currentMonth, currentYear, firstAdherent.id);
+      }
+
+    } catch (err) {
+      console.error("Erreur lors du chargement des données du parent:", err);
+      setError("Impossible de charger les données du parent");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  loadParentData();
+}, []);
+
   // Charger les informations quand les données du parent sont disponibles
   useEffect(() => {
     if (parentData && parentData.id) {

@@ -8,6 +8,7 @@ import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import { registerForPushNotificationsAsync } from '@/services/firebase-notifications';
 import * as Notifications from 'expo-notifications';
+import API from '@/services/api';
 const { width } = Dimensions.get('window');
 
 // Define interfaces outside of the component
@@ -45,7 +46,6 @@ interface Adherent {
   imageBase64?: string;
   dateNaissance?: string;
 }
-
 // Fonction utilitaire améliorée pour gérer les images
 const getImageSource = (image?: string | any) => {
   // Vérification du log pour déboguer
@@ -88,58 +88,51 @@ export default function ParentDashboardScreen() {
   const [showNotifications, setShowNotifications] = useState(false);
   const navigation = useNavigation();
   const [competitions, setCompetitions] = useState<Competition[]>([]);
-  
-  // Nouvel useEffect pour récupérer les notifications depuis l'API
-  useEffect(() => {
-    const fetchNotifications = async () => {
-      try {
-        const token = await AsyncStorage.getItem('jwt');
-        if (!token) return;
-        
-        const res = await axios.get('http://192.168.64.138:8080/api/notifications/me', {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        });
-        const notifs = res.data || [];
-        
-        setParent(prev => {
-          if (!prev) return prev;
-          return {
-            ...prev,
-            notificationsList: notifs.map(n => n.message).filter((msg): msg is string => msg !== null),
-            notifications: notifs.filter(n => !n.seen).length
-          };
-        });
-      } catch (e) {
-        console.error("❌ Erreur chargement notifications:", e);
-      }
-    };
-    
-    fetchNotifications();
-  }, []);
+  const [visibleMenuId, setVisibleMenuId] = useState<number | null>(null);
 
-  useEffect(() => {
-    const initNotifications = async () => {
-      const token = await registerForPushNotificationsAsync();
-      console.log('📱 Expo Push Token:', token);
- 
-      // Envoie-le au backend si besoin :
-      const jwt = await AsyncStorage.getItem('jwt');
-      if (token && jwt) {
-        await axios.post('http://192.168.64.138:8080/api/notifications/token', {
-          token,
-        }, {
-          headers: {
-            Authorization: `Bearer ${jwt}`,
-          }
+  // Nouvel useEffect pour récupérer les notifications depuis l'API
+
+useEffect(() => {
+  const fetchNotifications = async () => {
+    try {
+      const res = await API.get('/notifications/me'); // ✅ Utilise API centralisé
+      const notifs = res.data || [];
+
+      setParent(prev => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          notificationsList: notifs.map(n => n.message).filter((msg): msg is string => msg !== null),
+          notifications: notifs.filter(n => !n.seen).length
+        };
+      });
+    } catch (e) {
+      console.error("❌ Erreur chargement notifications:", e);
+    }
+  };
+
+  fetchNotifications();
+}, []);
+
+useEffect(() => {
+  const initNotifications = async () => {
+    try {
+      const expoToken = await registerForPushNotificationsAsync();
+      console.log('📱 Expo Push Token:', expoToken);
+
+      if (expoToken) {
+        await API.post('/notifications/token', {
+          token: expoToken,
         });
+        console.log('✅ Token envoyé au backend');
       }
-    };
- 
-    initNotifications();
-  }, []);
- 
+    } catch (e) {
+      console.error('❌ Erreur enregistrement token de notification:', e);
+    }
+  };
+
+  initNotifications();
+}, []);
   useEffect(() => {
     const subscription = Notifications.addNotificationReceivedListener(notification => {
       console.log("📥 Nouvelle notification reçue :", notification);
@@ -224,94 +217,79 @@ export default function ParentDashboardScreen() {
         }
  
         // Traiter les adhérents pour ajouter progress + nextSession
-        const adherentsMapped = await Promise.all(
-          (data.adherents || []).map(async (adherent: Adherent) => {
-            // Log pour déboguer les images des adhérents
-            console.log(`Adhérent ${adherent.id} - imageBase64:`, 
-              adherent.imageBase64 ? `${adherent.imageBase64.substring(0, 30)}...` : 'null');
-            
-            // 1. Récupération de la dernière performance
-            let latestNote = 0;
-            try {
-              const token = await AsyncStorage.getItem('token');
-              const perfRes = await axios.get(
-                `http://192.168.64.138:8080/api/performances/adherent/${adherent.id}/last`,
-                {
-                  headers: { Authorization: `Bearer ${token}` },
-                  timeout: 5000 
-                }
-              );
-              latestNote = perfRes.data?.note ?? 0;
-            } catch (err) {
-              console.warn(`⚠️ Erreur performance adhérent ${adherent.id}`, err);
-              latestNote = 0; 
-            }
-        
-            // 2. Récupération de la prochaine session
-            let nextSessionDate = 'Non spécifiée';
-            try {
-              const token = await AsyncStorage.getItem('token');
-              const sessionRes = await axios.get(
-                `http://192.168.64.138:8080/api/sessions/next/adherent/${adherent.id}`,
-                {
-                  headers: { Authorization: `Bearer ${token}` },
-                  timeout: 5000
-                }
-              );
-        
-              if (sessionRes.data?.dateTime) {
-                nextSessionDate = new Date(sessionRes.data.dateTime).toLocaleString('fr-FR', {
-                  weekday: 'long',
-                  day: 'numeric',
-                  month: 'long',
-                  hour: '2-digit',
-                  minute: '2-digit',
-                });
-              }
-            } catch (err) {
-              console.warn(`⚠️ Erreur session adhérent ${adherent.id}`, err);
-            }
-        
-            // Traitement amélioré pour l'avatar/image de l'adhérent
-            let adherentAvatar = null;
-            if (adherent.imageBase64) {
-              adherentAvatar = adherent.imageBase64.startsWith('data:')
-                ? adherent.imageBase64
-                : `data:image/jpeg;base64,${adherent.imageBase64}`;
-              console.log(`Avatar traité pour adhérent ${adherent.id}:`, 
-                adherentAvatar.substring(0, 30) + "...");
-            } else if (adherent.avatar) {
-              // Fallback sur avatar si imageBase64 n'existe pas
-              adherentAvatar = typeof adherent.avatar === 'string'
-                ? (adherent.avatar.startsWith('data:') 
-                    ? adherent.avatar 
-                    : `data:image/jpeg;base64,${adherent.avatar}`)
-                : adherent.avatar;
-              console.log(`Fallback sur avatar pour adhérent ${adherent.id}`);
-            }
-            
-            // 3. Construction de l'objet final
-            return {
-              ...adherent,
-              id: adherent.id,
-              nom: adherent.nom || 'Nom inconnu',
-              prenom: adherent.prenom || '',
-              // Avatar correctement traité
-              avatar: adherentAvatar,
-              // Activités avec fallback
-              activities: Array.isArray(adherent.activites) && adherent.activites.length > 0
-              ? adherent.activites
-              : ['Aucune activité'],
-                          // Progression avec valeur par défaut
-              progress: Math.min(Math.max(latestNote, 0), 100), // Garantit entre 0-100
-              nextSession: nextSessionDate,
-              // Calcul de l'âge si dateNaissance existe
-              age: adherent.dateNaissance 
-                ? new Date().getFullYear() - new Date(adherent.dateNaissance).getFullYear()
-                : null,
-            };
-          })
-        );
+
+const adherentsMapped = await Promise.all(
+  (data.adherents || []).map(async (adherent: Adherent) => {
+    console.log(`Adhérent ${adherent.id} - imageBase64:`,
+      adherent.imageBase64 ? `${adherent.imageBase64.substring(0, 30)}...` : 'null');
+
+    // 1. Récupération de la dernière performance
+    let latestNote = 0;
+    try {
+      const perfRes = await API.get(`/performances/adherent/${adherent.id}/last`, {
+        timeout: 5000,
+      });
+      latestNote = perfRes.data?.note ?? 0;
+    } catch (err) {
+      console.warn(`⚠️ Erreur performance adhérent ${adherent.id}`, err);
+    }
+
+    // 2. Récupération de la prochaine session
+    let nextSessionDate = 'Non spécifiée';
+    try {
+      const sessionRes = await API.get(`/sessions/next/adherent/${adherent.id}`, {
+        timeout: 5000,
+      });
+
+      if (sessionRes.data?.dateTime) {
+        nextSessionDate = new Date(sessionRes.data.dateTime).toLocaleString('fr-FR', {
+          weekday: 'long',
+          day: 'numeric',
+          month: 'long',
+          hour: '2-digit',
+          minute: '2-digit',
+        });
+      }
+    } catch (err) {
+      console.warn(`⚠️ Erreur session adhérent ${adherent.id}`, err);
+    }
+
+    // Traitement de l’image de l’adhérent
+    let adherentAvatar = null;
+    if (adherent.imageBase64) {
+      adherentAvatar = adherent.imageBase64.startsWith('data:')
+        ? adherent.imageBase64
+        : `data:image/jpeg;base64,${adherent.imageBase64}`;
+      console.log(`Avatar traité pour adhérent ${adherent.id}:`,
+        adherentAvatar.substring(0, 30) + "...");
+    } else if (adherent.avatar) {
+      adherentAvatar = typeof adherent.avatar === 'string'
+        ? (adherent.avatar.startsWith('data:')
+          ? adherent.avatar
+          : `data:image/jpeg;base64,${adherent.avatar}`)
+        : adherent.avatar;
+      console.log(`Fallback sur avatar pour adhérent ${adherent.id}`);
+    }
+
+    // 3. Construction de l’objet final
+    return {
+      ...adherent,
+      id: adherent.id,
+      nom: adherent.nom || 'Nom inconnu',
+      prenom: adherent.prenom || '',
+      avatar: adherentAvatar,
+      activities: Array.isArray(adherent.activites) && adherent.activites.length > 0
+        ? adherent.activites
+        : ['Aucune activité'],
+      progress: Math.min(Math.max(latestNote, 0), 100),
+      nextSession: nextSessionDate,
+      age: adherent.dateNaissance
+        ? new Date().getFullYear() - new Date(adherent.dateNaissance).getFullYear()
+        : null,
+    };
+  })
+);
+
  
         setAdherents(adherentsMapped);
         setCompetitions(extractedCompetitions);
@@ -505,9 +483,49 @@ export default function ParentDashboardScreen() {
                     {/* Si tu veux afficher l'âge, il doit exister dans ton DTO */}
                     {child.age && <Text style={styles.childAge}>{child.age} ans</Text>}
                   </View>
-                  <TouchableOpacity style={styles.moreButton}>
-                    <Ionicons name="ellipsis-vertical" size={20} color="#8B5CF6" />
-                  </TouchableOpacity>
+      <TouchableOpacity
+  style={styles.moreButton}
+  onPress={() => setVisibleMenuId(visibleMenuId === child.id ? null : child.id)}
+>
+  <Ionicons name="ellipsis-vertical" size={20} color="#8B5CF6" />
+</TouchableOpacity>
+{visibleMenuId === child.id && (
+  <View style={{
+    position: 'absolute',
+    top: 70,
+    right: 20,
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    shadowColor: '#000',
+    shadowOpacity: 0.1,
+    shadowRadius: 6,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    zIndex: 999,
+  }}>
+    <TouchableOpacity onPress={() => {
+      router.push({ pathname: '/AdherentDetailScreen', params: { adherentId: child.id } });
+      setVisibleMenuId(null);
+    }}>
+      <Text style={{ paddingVertical: 8, color: '#1F2937' }}>👤 Voir profil</Text>
+    </TouchableOpacity>
+    <TouchableOpacity onPress={() => {
+      alert('Modifier à implémenter');
+      setVisibleMenuId(null);
+    }}>
+      <Text style={{ paddingVertical: 8, color: '#1F2937' }}>✏️ Modifier</Text>
+    </TouchableOpacity>
+    <TouchableOpacity onPress={() => {
+      alert('Supprimer à implémenter');
+      setVisibleMenuId(null);
+    }}>
+      <Text style={{ paddingVertical: 8, color: 'red' }}>🗑 Supprimer</Text>
+    </TouchableOpacity>
+  </View>
+)}
+
                 </View>
 <View style={[styles.childContent, { flexGrow: 1 }]}>             
        <View style={styles.nextSessionContainer}>
@@ -637,14 +655,14 @@ export default function ParentDashboardScreen() {
           </TouchableOpacity>
           <TouchableOpacity
             style={styles.navItem}
-            onPress={() => router.push('/messages')}
+            onPress={() => router.push('/messagess')}
           >
             <Ionicons name="chatbubbles-outline" size={24} color="#71717A" />
             <Text style={[styles.navText, {color: '#71717A'}]}>Messages</Text>
           </TouchableOpacity>
           <TouchableOpacity
             style={styles.navItem}
-            onPress={() => router.push('/profile')}
+            onPress={() => router.push('/ParametresScreen')}
           >
             <Ionicons name="person-outline" size={24} color="#71717A" />
             <Text style={[styles.navText, {color: '#71717A'}]}>Profil</Text>

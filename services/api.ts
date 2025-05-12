@@ -1,30 +1,37 @@
-// services/api.ts
 import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import Constants from 'expo-constants';
+
+// ✅ Centraliser l'IP ici (priorité à app.json / app.config.js si défini)
+const IP_ADDRESS = Constants.expoConfig?.extra?.apiIp || '192.168.1.249';
+const PORT = '8080';
+const API_BASE_URL = `http://${IP_ADDRESS}:${PORT}/api`;
+
+// ✅ Création d'une instance Axios
 const API = axios.create({
-  baseURL: 'http://192.168.64.138:8080/api', // ← Mettez ici votre IP locale
+  baseURL: API_BASE_URL,
   headers: {
     'Content-Type': 'application/json',
   },
 });
 
-// Fonction pour récupérer le token
+// ✅ Récupération sécurisée du token JWT stocké
 const getToken = async (): Promise<string | null> => {
   try {
-    const token = await AsyncStorage.getItem('token'); // ← même clé partout
+    const token = await AsyncStorage.getItem('token');
     return token;
   } catch (error) {
-    console.error('Erreur de récupération du token :', error);
+    console.error('❌ Erreur de récupération du token :', error);
     return null;
   }
 };
 
-// Intercepteur pour ajouter automatiquement le header Authorization
+// ✅ Intercepteur : Ajout automatique du token dans les headers
 API.interceptors.request.use(
   async (config) => {
     const token = await getToken();
-    if (token) {
-      config.headers!['Authorization'] = `Bearer ${token}`;
+    if (token && config.headers) {
+      config.headers['Authorization'] = `Bearer ${token}`;
     }
     return config;
   },

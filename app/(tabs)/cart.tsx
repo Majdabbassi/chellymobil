@@ -9,18 +9,18 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import axios from 'axios';
 import Constants from 'expo-constants';
 import { useNavigation } from '@react-navigation/native';
-
-const API_BASE_URL = Constants?.expoConfig?.extra?.apiUrl ?? 'http://192.168.100.4:8080';
-
+import API from '@/services/api';
 const getImageSource = (image?: string) => {
   if (!image) {
     return require('../../assets/images/adaptive-icon.png');
   }
+
   if (image.startsWith('http')) {
     return { uri: image };
   }
-  // Si c'est juste un nom de fichier, construit l'URL complète
-  return { uri: `${API_BASE_URL}/uploads/${image}` };
+
+  // ✅ Construit dynamiquement l’URL à partir de l’instance API
+  return { uri: `${API.defaults.baseURL}/uploads/${image}` };
 };
 
 export default function CartScreen() {
@@ -31,94 +31,81 @@ export default function CartScreen() {
   const total = cartItems.reduce((sum, item) => sum + item.prix * item.quantity, 0);
   const shippingFee = total > 100 ? 0 : 7;
   const finalTotal = total + shippingFee;
-  const handleCreateCommande = async () => {
-    if (cartItems.length === 0) {
-      Alert.alert("Panier vide", "Ajoutez des produits avant de payer.");
-      return;
-    }
-  
-    try {
-      setLoading(true);
-      const token = await AsyncStorage.getItem("token");
-      if (!token) throw new Error("Session expirée");
-  
-      const commandePayload = {
-        statutCommande: "EN_ATTENTE", // ou "PAYEE" si tu veux marquer comme payé immédiatement
-        produits: cartItems.map(item => ({
-          id: item.id,
-          quantite: item.quantity,
-        })),
-      };
-  
-      const response = await axios.post(`${API_BASE_URL}/api/commandes`, commandePayload, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
-  
-      Alert.alert("✅ Succès", "Commande enregistrée avec succès !");
-      clearCart();
-  
-    } catch (error) {
-      console.error(error);
-      if (axios.isAxiosError(error) && error.response) {
-        Alert.alert("❌ Erreur", error.response.data?.error || "Impossible de créer la commande.");
-      } else {
-        Alert.alert("❌ Erreur", "Une erreur inconnue s'est produite.");
-      }
-    } finally {
-      setLoading(false);
-    }
-  };
-  
-  const handleKonnectProductPayment = async () => {
-    if (cartItems.length === 0) {
-      Alert.alert("Panier vide", "Ajoutez des produits avant de payer.");
-      return;
-    }
+const handleCreateCommande = async () => {
+  if (cartItems.length === 0) {
+    Alert.alert("Panier vide", "Ajoutez des produits avant de payer.");
+    return;
+  }
 
+  try {
     setLoading(true);
 
-    try {
-      const token = await AsyncStorage.getItem("token");
-      if (!token) throw new Error("Session expirée");
+    const commandePayload = {
+      statutCommande: "EN_ATTENTE",
+      produits: cartItems.map(item => ({
+        id: item.id,
+        quantite: item.quantity,
+      })),
+    };
 
-      const response = await axios.post(
-        `${API_BASE_URL}/api/konnect/product-pay`,
-        {
-          products: cartItems.map(item => ({
-            id: item.id,
-            name: item.designation,
-            quantity: item.quantity,
-            size: item.size,
-            price: item.prix
-          })),
-          total: Math.round(finalTotal * 100),
-          description: `Paiement produits (${cartItems.length} article${cartItems.length > 1 ? 's' : ''})`
-        },
-        {
-          headers: { Authorization: `Bearer ${token}` }
-        }
-      );
+    const response = await API.post('/commandes', commandePayload); // ✅ via API centralisé
 
-      const konnectUrl = response.data?.payment_url;
-      if (typeof konnectUrl === 'string' && konnectUrl.startsWith("http")) {
-        Linking.openURL(konnectUrl);
-      } else {
-        throw new Error("Lien de paiement invalide");
-      }
+    Alert.alert("✅ Succès", "Commande enregistrée avec succès !");
+    clearCart();
 
-    } catch (error) {
-      console.error(error);
-      if (axios.isAxiosError(error) && error.response) {
-        Alert.alert("Erreur", error.response.data?.error || "Échec du paiement Konnect");
-      } else {
-        Alert.alert("Erreur", "Une erreur inconnue s'est produite");
-      }
-    } finally {
-      setLoading(false);
+  } catch (error: any) {
+    console.error(error);
+    if (error.response) {
+      Alert.alert("❌ Erreur", error.response.data?.error || "Impossible de créer la commande.");
+    } else {
+      Alert.alert("❌ Erreur", "Une erreur inconnue s'est produite.");
     }
-  };
+  } finally {
+    setLoading(false);
+  }
+};
+
+  
+const handleKonnectProductPayment = async () => {
+  if (cartItems.length === 0) {
+    Alert.alert("Panier vide", "Ajoutez des produits avant de payer.");
+    return;
+  }
+
+  setLoading(true);
+
+  try {
+    const response = await API.post('/konnect/product-pay', {
+      products: cartItems.map(item => ({
+        id: item.id,
+        name: item.designation,
+        quantity: item.quantity,
+        size: item.size,
+        price: item.prix
+      })),
+      total: Math.round(finalTotal * 100),
+      description: `Paiement produits (${cartItems.length} article${cartItems.length > 1 ? 's' : ''})`
+    });
+
+    const konnectUrl = response.data?.payment_url;
+    if (typeof konnectUrl === 'string' && konnectUrl.startsWith("http")) {
+      Linking.openURL(konnectUrl);
+    } else {
+      throw new Error("Lien de paiement invalide");
+    }
+
+  } catch (error: any) {
+    console.error(error);
+    if (error.response) {
+      Alert.alert("Erreur", error.response.data?.error || "Échec du paiement Konnect");
+    } else {
+      Alert.alert("Erreur", "Une erreur inconnue s'est produite");
+    }
+  } finally {
+    setLoading(false);
+  }
+};
+
 
   const decreaseQuantity = (item: CartItem) => {
     item.quantity > 1

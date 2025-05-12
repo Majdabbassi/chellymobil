@@ -1,13 +1,14 @@
-import axios from 'axios';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import API from './api'; // ✅ Utilise l'instance axios centralisée
 
+/**
+ * 📲 Envoie le token FCM au backend pour l'utilisateur connecté
+ * @param token Le token FCM à associer au compte
+ */
 export async function sendTokenToBackend(token: string) {
-  const authToken = await AsyncStorage.getItem('jwt');
-  if (!authToken) return;
-
-  await axios.post('http://192.168.100.4:8080/api/notifications/token', { token }, {
-        headers: {
-      Authorization: `Bearer ${authToken}`,
-    },
-  });
+  try {
+    await API.post('/notifications/token', { token });
+  } catch (error) {
+    console.error('❌ Erreur envoi du token FCM au backend :', error);
+    throw error;
+  }
 }

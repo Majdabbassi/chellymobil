@@ -13,9 +13,11 @@ import {
   Image as RNImage,  Switch,
   ActivityIndicator
 } from 'react-native';
+import API from '@/services/api';
+import API_BASE_URL from '@/services/api';
+
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import API from '../services/api'; // Import du service API
 import axios from 'axios';
 import { AdherentDTO } from '../types/AdherentDTO';
 import { getPerformanceByAdherent } from '@/services/performanceService';
@@ -23,6 +25,7 @@ import { useNavigation } from '@react-navigation/native';
 import { router } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker'; // ← important !
 import * as DocumentPicker from 'expo-document-picker';
+
 const pickImage = async (): Promise<string | null> => {
   
   let permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -131,7 +134,13 @@ const [enfants, setEnfants] = useState<AdherentDTO[]>([]);
     };
     checkAuthStatus();
   }, []);
-  
+  <TouchableOpacity
+  onPress={() => router.replace('/dashboard')}
+  style={{ position: 'absolute', top: 40, left: 20, zIndex: 10 }}
+>
+  <Ionicons name="arrow-back" size={26} color="#8A6BFF" />
+</TouchableOpacity>
+
 const getUserIdFromStorage = async (): Promise<number | null> => {
   try {
     const id = await AsyncStorage.getItem('userId');
@@ -353,12 +362,14 @@ const getUserIdFromStorage = async (): Promise<number | null> => {
   
       const token = await AsyncStorage.getItem('token');
   
-      const response = await axios.post('http://192.168.100.4:8080/api/documents/upload', formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-          'Authorization': `Bearer ${token}`,
-        },
-      });
+   const response = await fetch(`${API_BASE_URL}/api/documents/upload`, {
+  method: 'POST',
+  headers: {
+    'Authorization': `Bearer ${token}`,
+  },
+  body: formData,
+});
+
   
       console.log("✅ Upload réussi:", response.data);
       Alert.alert("Succès", "Document uploadé avec succès !");
