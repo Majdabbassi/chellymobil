@@ -170,7 +170,7 @@ export default function PaymentConfirmationScreen() {
   };
 
   const handleGoHome = () => {
-    router.replace('/(tabs)/ParentDashboardScreen');
+    router.replace('/(drawer)/ParentDashboardScreen');
   };
 
   const renderPaymentDetails = () => {
@@ -221,6 +221,7 @@ export default function PaymentConfirmationScreen() {
   };
 
   return (
+<<<<<<< HEAD:app/(tabs)/payment-confirmation.tsx
     <SafeAreaView style={styles.container}>
       <ScrollView contentContainerStyle={styles.scrollContent}>
         {status === 'success' ? (
@@ -291,6 +292,33 @@ export default function PaymentConfirmationScreen() {
         )}
       </ScrollView>
     </SafeAreaView>
+=======
+    <View style={styles.container}>
+      {status === 'success' ? (
+        <View style={styles.centered}>
+          <Text style={styles.successText}>✅ Paiement réussi !</Text>
+          <Text style={styles.text}>Merci pour votre réservation.</Text>
+          <Image source={require('@/assets/images/confirmation.png')} style={styles.image} resizeMode="contain" />
+          <TouchableOpacity style={styles.button} onPress={handleGoHome}>
+            <Text style={styles.buttonText}>Retour à l'accueil</Text>
+          </TouchableOpacity>
+        </View>
+      ) : status === 'failed' ? (
+        <View style={styles.centered}>
+          <Text style={styles.errorText}>❌ Paiement échoué.</Text>
+          <Text style={styles.text}>Veuillez réessayer ou utiliser un autre moyen de paiement.</Text>
+          <TouchableOpacity style={styles.button} onPress={handleGoHome}>
+            <Text style={styles.buttonText}>Retour à l'accueil</Text>
+          </TouchableOpacity>
+        </View>
+      ) : (
+        <View style={styles.centered}>
+          <ActivityIndicator size="large" color="#6B46C1" />
+          <Text style={styles.text}>Chargement du statut...</Text>
+        </View>
+      )}
+    </View>
+>>>>>>> 7247ae8c5682a5dc3ac8097e5cf313d9ead1a58e:app/(drawer)/(tabs)/payment-confirmation.tsx
   );
 }
 

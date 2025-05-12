@@ -50,11 +50,12 @@ export default function LoginFormScreen() {
         const { id: parentId, nom, prenom, email, telephone } = parentResponse.data as ParentData;
 
         const minimalParentData = { id: parentId, nom, prenom, email, telephone };
+        await AsyncStorage.setItem('parentId', parentId.toString());
 
         await AsyncStorage.setItem('parent', JSON.stringify(minimalParentData));
       }
   
-      router.replace('/(tabs)/ParentDashboardScreen');
+      router.replace('/(drawer)/ParentDashboardScreen');
   
     } catch (error: any) {
       console.error('❌ Erreur login:', error.response?.data || error.message);

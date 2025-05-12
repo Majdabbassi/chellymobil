@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, Image, ActivityIndicator } from 'react-native';
 import { getAllActivities, ActivityDTO } from '../services/avtivities' // path depends on your structure
+import { router } from 'expo-router';
 
 
 export default function ActivitiesScreen() {
@@ -40,7 +41,12 @@ export default function ActivitiesScreen() {
  
    return (
     <View style={styles.container}>
-      <Text style={styles.title}>Choisir une activité</Text>
+    <View style={styles.headerContainer}>
+      <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+        <Text style={styles.backArrow}>←</Text>
+      </TouchableOpacity>
+      <Text style={styles.headerTitle}>Choisir une activité</Text>
+    </View>
 
       <FlatList
         data={activities}
@@ -48,7 +54,9 @@ export default function ActivitiesScreen() {
         numColumns={2}
         columnWrapperStyle={styles.row}
         renderItem={({ item }) => (
-          <TouchableOpacity style={styles.activityCard}>
+          <TouchableOpacity style={styles.activityCard}
+          onPress={() => router.push(`/activity-details/${item.id}`)}
+          >
             <Image
               source={{
                 uri: item.imageBase64
@@ -67,6 +75,34 @@ export default function ActivitiesScreen() {
 }
 
 const styles = StyleSheet.create({
+  headerContainer: {
+  flexDirection: 'row',
+  alignItems: 'center',
+  backgroundColor: '#6D28D9',
+  paddingVertical: 14,
+  paddingHorizontal: 16,
+  width: '100%',
+  elevation: 3,
+  shadowColor: '#000',
+  shadowOffset: { width: 0, height: 2 },
+  shadowOpacity: 0.1,
+  shadowRadius: 4,
+  borderRadius:10,
+  marginBottom:20,
+},
+backButton: {
+  marginRight: 12,
+},
+backArrow: {
+  fontSize: 22,
+  color: 'white',
+},
+headerTitle: {
+  fontSize: 18,
+  color: 'white',
+  fontWeight: 'bold',
+},
+
   container: {
     flex: 1,
     padding: 16,

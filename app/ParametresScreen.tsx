@@ -370,6 +370,12 @@ const getUserIdFromStorage = async (): Promise<number | null> => {
   body: formData,
 });
 
+      const response = await axios.post('http://192.168.64.138:8080/api/documents/upload', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+          'Authorization': `Bearer ${token}`,
+        },
+      });
   
       console.log("✅ Upload réussi:", response.data);
       Alert.alert("Succès", "Document uploadé avec succès !");

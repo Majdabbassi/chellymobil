@@ -8,7 +8,11 @@ import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import { registerForPushNotificationsAsync } from '@/services/firebase-notifications';
 import * as Notifications from 'expo-notifications';
+<<<<<<< HEAD:app/(tabs)/ParentDashboardScreen.tsx
 import API from '@/services/api';
+=======
+
+>>>>>>> 7247ae8c5682a5dc3ac8097e5cf313d9ead1a58e:app/(drawer)/ParentDashboardScreen.tsx
 const { width } = Dimensions.get('window');
 
 // Define interfaces outside of the component
@@ -54,7 +58,7 @@ const getImageSource = (image?: string | any) => {
   // Si pas d'image, retourner l'image par défaut
   if (!image) {
     console.log("Aucune image trouvée, utilisation de l'image par défaut");
-    return require('../../assets/images/adaptive-icon.png');
+    return require('@/assets/images/adaptive-icon.png');
   }
 
   // Si c'est déjà un objet avec uri (format React Native)
@@ -79,7 +83,7 @@ const getImageSource = (image?: string | any) => {
 
   // Dans tous les autres cas, retourner l'image par défaut
   console.log("Format non reconnu, utilisation de l'image par défaut");
-  return require('../../assets/images/adaptive-icon.png');
+  return require('@/assets/images/adaptive-icon.png');
 };
 
 export default function ParentDashboardScreen() {
@@ -396,55 +400,55 @@ const adherentsMapped = await Promise.all(
         </View>
        
         {/* Quick Links */}
-<View style={styles.quickLinksContainer}>
-  {/* First Row */}
-  <View style={styles.quickLinksRow}>
-    <TouchableOpacity style={styles.quickLink} onPress={() => router.push('/calendar')}>
-      <View style={[styles.quickLinkIcon, { backgroundColor: '#F0F4FF' }]}>
-        <Ionicons name="calendar" size={22} color="#6366F1" />
-      </View>
-      <Text style={styles.quickLinkText}>Calendrier</Text>
-    </TouchableOpacity>
+        <View style={styles.quickLinksContainer}>
+          {/* First Row */}
+          <View style={styles.quickLinksRow}>
+            <TouchableOpacity style={styles.quickLink} onPress={() => router.push('/calendar')}>
+              <View style={[styles.quickLinkIcon, { backgroundColor: '#F0F4FF' }]}>
+                <Ionicons name="calendar" size={22} color="#6366F1" />
+              </View>
+              <Text style={styles.quickLinkText}>Calendrier</Text>
+            </TouchableOpacity>
 
-    <TouchableOpacity style={styles.quickLink} onPress={() => router.push('/PaymentSelectionScreen')}>
-      <View style={[styles.quickLinkIcon, { backgroundColor: '#F5F3FF' }]}>
-        <Ionicons name="card-outline" size={22} color="#8B5CF6" />
-      </View>
-      <Text style={styles.quickLinkText}>Paiements</Text>
-    </TouchableOpacity>
+            <TouchableOpacity style={styles.quickLink} onPress={() => router.push('/PaymentSelectionScreen')}>
+              <View style={[styles.quickLinkIcon, { backgroundColor: '#F5F3FF' }]}>
+                <Ionicons name="card-outline" size={22} color="#8B5CF6" />
+              </View>
+              <Text style={styles.quickLinkText}>Paiements</Text>
+            </TouchableOpacity>
 
-    <TouchableOpacity style={styles.quickLink} onPress={() => router.push('/messagess')}>
-      <View style={[styles.quickLinkIcon, { backgroundColor: '#F0FDF4' }]}>
-        <Ionicons name="chatbubbles-outline" size={22} color="#10B981" />
-      </View>
-      <Text style={styles.quickLinkText}>Messages</Text>
-    </TouchableOpacity>
-  </View>
+            <TouchableOpacity style={styles.quickLink} onPress={() => router.push('/messagess')}>
+              <View style={[styles.quickLinkIcon, { backgroundColor: '#F0FDF4' }]}>
+                <Ionicons name="chatbubbles-outline" size={22} color="#10B981" />
+              </View>
+              <Text style={styles.quickLinkText}>Messages</Text>
+            </TouchableOpacity>
+          </View>
 
-  {/* Second Row */}
-  <View style={styles.quickLinksRow}>
-    <TouchableOpacity style={styles.quickLink} onPress={() => router.push('/ParametresScreen')}>
-      <View style={[styles.quickLinkIcon, { backgroundColor: '#FEF2F2' }]}>
-        <Ionicons name="settings-outline" size={22} color="#EF4444" />
-      </View>
-      <Text style={styles.quickLinkText}>Paramètres</Text>
-    </TouchableOpacity>
+          {/* Second Row */}
+          <View style={styles.quickLinksRow}>
+            <TouchableOpacity style={styles.quickLink} onPress={() => router.push('/ParametresScreen')}>
+              <View style={[styles.quickLinkIcon, { backgroundColor: '#FEF2F2' }]}>
+                <Ionicons name="settings-outline" size={22} color="#EF4444" />
+              </View>
+              <Text style={styles.quickLinkText}>Paramètres</Text>
+            </TouchableOpacity>
 
-    <TouchableOpacity style={styles.quickLink} onPress={() => router.push('/activities')}>
-      <View style={[styles.quickLinkIcon, { backgroundColor: '#E0F2FE' }]}>
-        <Ionicons name="football-outline" size={22} color="#0EA5E9" />
-      </View>
-      <Text style={styles.quickLinkText}>Activités</Text>
-    </TouchableOpacity>
+            <TouchableOpacity style={styles.quickLink} onPress={() => router.push('/activities')}>
+              <View style={[styles.quickLinkIcon, { backgroundColor: '#E0F2FE' }]}>
+                <Ionicons name="football-outline" size={22} color="#0EA5E9" />
+              </View>
+              <Text style={styles.quickLinkText}>Activités</Text>
+            </TouchableOpacity>
 
-    <TouchableOpacity style={styles.quickLink} onPress={() => router.push('/competitions')}>
-      <View style={[styles.quickLinkIcon, { backgroundColor: '#FEFCE8' }]}>
-        <Ionicons name="trophy-outline" size={22} color="#F59E0B" />
-      </View>
-      <Text style={styles.quickLinkText}>Compétitions</Text>
-    </TouchableOpacity>
-  </View>
-</View>
+            <TouchableOpacity style={styles.quickLink} onPress={() => router.push('/competition')}>
+              <View style={[styles.quickLinkIcon, { backgroundColor: '#FEFCE8' }]}>
+                <Ionicons name="trophy-outline" size={22} color="#F59E0B" />
+              </View>
+              <Text style={styles.quickLinkText}>Compétitions</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
 
        
         {/* Adhérents Section Title */}
