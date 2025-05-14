@@ -1,14 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, Image, ActivityIndicator } from 'react-native';
-import { getAllActivities, ActivityDTO } from '../services/avtivities' // path depends on your structure
-import { router } from 'expo-router';
+import { getAllActivities, ActivityDTO } from '../../services/avtivities' // path depends on your structure
+import { router, useNavigation } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
 
 
 export default function ActivitiesScreen() {
  
   const [activities, setActivities] = useState<ActivityDTO[]>([]);
   const [loading, setLoading] = useState(true);
-
+  const navigation = useNavigation();
   useEffect(() => {
     const fetchActivities = async () => {
       try {
@@ -42,10 +43,10 @@ export default function ActivitiesScreen() {
    return (
     <View style={styles.container}>
     <View style={styles.headerContainer}>
-      <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-        <Text style={styles.backArrow}>←</Text>
+      <TouchableOpacity onPress={() => navigation.toggleDrawer()}>
+          <Ionicons name="menu" size={24} color="#fff" />
       </TouchableOpacity>
-      <Text style={styles.headerTitle}>Choisir une activité</Text>
+      <Text style={styles.headerTitle}>    Choisir une activité</Text>
     </View>
 
       <FlatList

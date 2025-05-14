@@ -19,7 +19,7 @@ import API_BASE_URL from '@/services/api';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import axios from 'axios';
-import { AdherentDTO } from '../types/AdherentDTO';
+import { AdherentDTO } from '../../types/AdherentDTO';
 import { getPerformanceByAdherent } from '@/services/performanceService';
 import { useNavigation } from '@react-navigation/native';
 import { router } from 'expo-router';
@@ -1121,7 +1121,13 @@ const handleUploadDocument = async () => {
         </View>
       ) : (
         <ScrollView contentContainerStyle={styles.content}>
-          <Text style={styles.title}>Paramètres</Text>
+          <View style={styles.headerContainer}>
+            <TouchableOpacity onPress={() => navigation.toggleDrawer()} style={styles.menuIcon}>
+              <Ionicons name="menu" size={24} color="#6D28D9" />
+            </TouchableOpacity>
+            <Text style={styles.title}>Paramètres</Text>
+          </View>
+
           <View style={styles.userInfoContainer}>
   <Text style={styles.userInfoTitle}>Informations personnelles</Text>
   <View style={styles.userInfoRow}>
@@ -1264,6 +1270,19 @@ const handleUploadDocument = async () => {
   container: {
     flex: 1,
     backgroundColor: '#FFFFFF',
+  },
+  headerContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center', // center the title
+    position: 'relative',
+    height: 50,
+  },
+  menuIcon: {
+    position: 'absolute',
+    left: 0,
+    paddingHorizontal: 15,
+    zIndex: 1,
   },
   content: {
     padding: 20,

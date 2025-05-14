@@ -2,6 +2,7 @@ import { Drawer } from 'expo-router/drawer';
 import React, { useEffect, useState } from 'react';
 import CustomDrawerContent from '../CustomDrawerContent';
 import { getParentById } from '@/services/parentService';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 interface Parent {
   nom: string;
@@ -12,23 +13,30 @@ interface Parent {
 export default function DrawerLayout() {
     const [user, setUser] = useState<Parent>({ nom: '', prenom: '', email: '' });
 
-   useEffect(() => {
-    const fetchParent = async () => {
-      try {
-        const parent = await getParentById();
-        setUser({
-          nom: parent.nom,
-          prenom: parent.prenom,
-          email: parent.email,
-        });
-        console.log("👤 Parent chargé dans DrawerLayout:", parent);
-      } catch (error) {
-        console.error('❌ Erreur récupération parent drawer:', error);
-      }
-    };
+  useEffect(() => {
+  const fetchParent = async () => {
+    try {
+      const token = await AsyncStorage.getItem('token');
 
-    fetchParent();
-  }, []);
+      if (!token) {
+        console.log('⛔ Aucun token trouvé, on ne fait pas l’appel API getParentById');
+        return;
+      }
+
+      const parent = await getParentById();
+      setUser({
+        nom: parent.nom,
+        prenom: parent.prenom,
+        email: parent.email,
+      });
+      console.log("👤 Parent chargé dans DrawerLayout:", parent);
+    } catch (error) {
+      console.error('❌ Erreur récupération parent drawer:', error);
+    }
+  };
+
+  fetchParent();
+}, []);
   return (
     <Drawer
         drawerContent={(props) => <CustomDrawerContent {...props} user={user} />}

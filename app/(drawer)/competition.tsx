@@ -8,16 +8,17 @@ import {
   StyleSheet
 } from 'react-native';
 import axios from 'axios';
-import { router } from 'expo-router';
+import { router, useNavigation } from 'expo-router';
 import Constants from 'expo-constants';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Ionicons } from '@expo/vector-icons';
 
-const API_URL = Constants.expoConfig?.extra?.apiUrl ?? 'http://192.168.100.16:8080';
+const API_URL = Constants.expoConfig?.extra?.apiUrl ?? 'http://192.168.110.138:8080';
 
 export default function CompetitionListScreen() {
   const [competitions, setCompetitions] = useState([]);
   const [loading, setLoading] = useState(true);
-
+  const navigation = useNavigation();
   useEffect(() => {
     const fetchCompetitions = async () => {
       try {
@@ -48,8 +49,8 @@ export default function CompetitionListScreen() {
     <ScrollView contentContainerStyle={styles.scrollContent}>
       {/* ✅ Clickable Header inside ScrollView */}
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.push('/ParentDashboardScreen')} style={styles.backButton}>
-          <Text style={styles.backArrow}>←</Text>
+        <TouchableOpacity onPress={() => navigation.toggleDrawer()}>
+          <Ionicons name="menu" size={24} color="#fff" />
         </TouchableOpacity>
         <Text style={styles.title}>Liste des Compétitions</Text>
       </View>

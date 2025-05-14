@@ -14,7 +14,7 @@ import {
 import API from '@/services/api'; // ✅ Utilisation de l'API centralisée
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
-import { router } from 'expo-router';
+import { router, useNavigation } from 'expo-router';
 import Constants from 'expo-constants';
 import { getAdherentsOfCurrentParent, getActivitiesByAdherent, getCurrentParentInfo } from '@/services/adherent';
 import * as Linking from 'expo-linking';
@@ -50,6 +50,7 @@ export default function PaymentSelectionScreen() {
     email: '',
     phoneNumber: ''
   });
+  const navigation = useNavigation();
   const [showSuccessAlert, setShowSuccessAlert] = useState(false);
   const [alreadyPaidMonth, setAlreadyPaidMonth] = useState<string | null>(null);
 
@@ -566,14 +567,8 @@ setShowSuccessAlert(true);
       />
 
       <View style={styles.header}>
-        <TouchableOpacity 
-          onPress={() => router.back()} 
-          style={styles.backButton}
-          accessible={true}
-          accessibilityLabel="Retour"
-          accessibilityHint="Retourne à l'écran précédent"
-        >
-          <Ionicons name="arrow-back" size={24} color="#fff" />
+        <TouchableOpacity onPress={() => navigation.toggleDrawer()}>
+          <Ionicons name="menu" size={24} color="#fff" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Sélection de paiement</Text>
         <View style={{ width: 24 }} />

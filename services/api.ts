@@ -4,7 +4,7 @@ import Constants from 'expo-constants';
 import { Platform } from 'react-native';
 
 // ✅ Choix intelligent de l'IP : localhost pour web, IP locale pour mobile
-const LOCAL_IP = Constants.expoConfig?.extra?.apiIp || '192.168.64.138'; // modifiable dans app.json
+const LOCAL_IP = Constants.expoConfig?.extra?.apiIp || '192.168.110.138'; // modifiable dans app.json
 const IP_ADDRESS = Platform.OS === 'web' ? 'localhost' : LOCAL_IP;
 const PORT = '8080';
 const API_BASE_URL = `http://${IP_ADDRESS}:${PORT}/api`;

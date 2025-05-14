@@ -9,6 +9,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage'
 import { registerForPushNotificationsAsync } from '@/services/firebase-notifications';
 import * as Notifications from 'expo-notifications';
 import API from '@/services/api';
+import Modal from 'react-native-modal';
 
 const { width } = Dimensions.get('window');
 
@@ -95,6 +96,12 @@ export default function ParentDashboardScreen() {
 
 useEffect(() => {
   const fetchNotifications = async () => {
+    const token = await AsyncStorage.getItem('token');
+        if (!token) {
+          console.log("⛔ Pas de token pour notifications");
+          return;
+        }
+
     try {
       const res = await API.get('/notifications/me'); // ✅ Utilise API centralisé
       const notifs = res.data || [];
@@ -134,6 +141,7 @@ useEffect(() => {
 
   initNotifications();
 }, []);
+
   useEffect(() => {
     const subscription = Notifications.addNotificationReceivedListener(notification => {
       console.log("📥 Nouvelle notification reçue :", notification);
@@ -157,6 +165,13 @@ useEffect(() => {
 
   useEffect(() => {
     const fetchParent = async () => {
+    const token = await AsyncStorage.getItem('token');
+
+    if (!token) {
+      console.log("⛔ Aucun token trouvé, on ne fait pas l'appel API getParentById");
+      return; // Don't continue if not logged in
+    }
+
       try {
         const data = await getParentById();
         console.log("Parent data received:", data);
@@ -164,14 +179,6 @@ useEffect(() => {
         // Log pour déboguer les données d'avatar
         console.log("Avatar du parent reçu:", data.avatar);
         
-        // Simule des notifications si le backend n'en renvoie pas
-        const notificationsList = data.notificationsList && data.notificationsList.length > 0
-          ? data.notificationsList
-          : [
-              "📅 Match samedi à 14h",
-              "💰 Paiement en attente",
-              "💬 Nouveau message du coach"
-            ];
         
         // Traitement d'avatar amélioré
         let processedAvatar = null;
@@ -189,8 +196,8 @@ useEffect(() => {
         
         setParent({
           ...data,
-          notificationsList,
-          notifications: notificationsList.length,
+          notificationsList: [],
+          notifications: 0,
           avatar: processedAvatar
         });
             
@@ -357,17 +364,39 @@ const adherentsMapped = await Promise.all(
               </View>
             </TouchableOpacity>
            
-            {showNotifications && (
-              <View style={styles.notificationDropdown}>
-                {parent?.notificationsList && parent.notificationsList.length > 0 ? (
-                  parent.notificationsList.map((notif, idx) => (
-                    <Text key={idx} style={styles.notificationItem}>{notif}</Text>
-                  ))
+            <Modal
+              isVisible={showNotifications}
+              backdropOpacity={0}
+              animationIn="fadeIn"
+              animationOut="fadeOut"
+              onBackdropPress={() => setShowNotifications(false)}
+              style={{ margin: 0, justifyContent: 'flex-start', alignItems: 'flex-end' }}
+            >
+              <TouchableOpacity
+                style={styles.notificationDropdown}
+                activeOpacity={0.9}
+                onPress={() => {
+                  setShowNotifications(false);
+                  router.push('/NotificationsScreen');
+                }}
+              >
+                {parent?.notificationsList?.length > 0 ? (
+                  parent.notificationsList
+                    .slice(0, 3) // 👈 Ajout ici pour limiter à 3 notifs
+                    .map((notif, idx) => (
+                      <View key={idx} style={styles.notificationItemRow}>
+                        <Text style={styles.notificationItemText}>{notif}</Text>
+                        {idx < 2 && <View style={styles.separator} />}
+                      </View>
+                    ))
                 ) : (
-                  <Text style={styles.notificationItem}>Aucune notification</Text>
+                  <Text style={styles.notificationItemText}>Aucune notification</Text>
                 )}
-              </View>
-            )}
+              </TouchableOpacity>
+            </Modal>
+
+
+
           </View>
         </View>
        
@@ -491,41 +520,49 @@ const adherentsMapped = await Promise.all(
   <Ionicons name="ellipsis-vertical" size={20} color="#8B5CF6" />
 </TouchableOpacity>
 {visibleMenuId === child.id && (
-  <View style={{
-    position: 'absolute',
-    top: 70,
-    right: 20,
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-    shadowColor: '#000',
-    shadowOpacity: 0.1,
-    shadowRadius: 6,
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-    zIndex: 999,
-  }}>
-    <TouchableOpacity onPress={() => {
-      router.push({ pathname: '/AdherentDetailScreen', params: { adherentId: child.id } });
-      setVisibleMenuId(null);
-    }}>
-      <Text style={{ paddingVertical: 8, color: '#1F2937' }}>👤 Voir profil</Text>
-    </TouchableOpacity>
-    <TouchableOpacity onPress={() => {
-      alert('Modifier à implémenter');
-      setVisibleMenuId(null);
-    }}>
-      <Text style={{ paddingVertical: 8, color: '#1F2937' }}>✏️ Modifier</Text>
-    </TouchableOpacity>
-    <TouchableOpacity onPress={() => {
-      alert('Supprimer à implémenter');
-      setVisibleMenuId(null);
-    }}>
-      <Text style={{ paddingVertical: 8, color: 'red' }}>🗑 Supprimer</Text>
-    </TouchableOpacity>
-  </View>
+  <>
+    {/* Transparent overlay to close on outside click */}
+    <TouchableOpacity
+      style={styles.modalBackdrop}
+      activeOpacity={1}
+      onPressOut={() => setVisibleMenuId(null)}
+    />
+
+    {/* Dropdown content shown near the icon */}
+    <View style={styles.childMenuModal}>
+      <TouchableOpacity
+        onPress={() => {
+          router.push({
+            pathname: '/AdherentDetailScreen',
+            params: { adherentId: child.id },
+          });
+          setVisibleMenuId(null);
+        }}
+      >
+        <Text style={styles.menuItemText}>👤 Voir profil</Text>
+      </TouchableOpacity>
+
+      <TouchableOpacity
+        onPress={() => {
+          alert('Modifier à implémenter');
+          setVisibleMenuId(null);
+        }}
+      >
+        <Text style={styles.menuItemText}>✏️ Modifier</Text>
+      </TouchableOpacity>
+
+      <TouchableOpacity
+        onPress={() => {
+          alert('Supprimer à implémenter');
+          setVisibleMenuId(null);
+        }}
+      >
+        <Text style={[styles.menuItemText, { color: 'red' }]}>🗑 Supprimer</Text>
+      </TouchableOpacity>
+    </View>
+  </>
 )}
+
 
                 </View>
 <View style={[styles.childContent, { flexGrow: 1 }]}>             
@@ -752,22 +789,69 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
   },
   notificationDropdown: {
-    position: 'absolute',
-    top: 60,
-    right: 10,
-    backgroundColor: 'white',
-    padding: 20,
-    borderRadius: 20,
-    shadowColor: '#5D3FD3',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.2,
-    shadowRadius: 16,
-    elevation: 12,
-    zIndex: 1000,
-    width: 300,
-    borderWidth: 1,
-    borderColor: '#EBE5FF',
-  },
+  backgroundColor: 'white',
+  paddingVertical: 10,
+  paddingHorizontal: 16,
+  borderRadius: 12,
+  shadowColor: '#000',
+  shadowOffset: { width: 0, height: 6 },
+  shadowOpacity: 0.1,
+  shadowRadius: 8,
+  elevation: 10,
+  marginTop: 130,     // 👈 Appears below the bell
+  marginRight: 25,   // 👈 Aligns from the right
+  width: 260,
+},
+notificationItemRow: {
+  flexDirection: 'row',
+  alignItems: 'center',
+  paddingVertical: 6,
+},
+notificationItemText: {
+  fontSize: 14,
+  color: '#1F2937',
+},
+
+separator: {
+  height: 1,
+  backgroundColor: '#E5E7EB',
+  marginVertical: 6,
+},
+modalBackdrop: {
+  position: 'absolute',
+  top: 0,
+  left: 0,
+  bottom: 0,
+  right: 0,
+  zIndex: 998,
+  backgroundColor: 'transparent',
+},
+
+childMenuModal: {
+  position: 'absolute',
+  top: 60, // Adjust based on your layout
+  right: 20,
+  zIndex: 1111,
+  backgroundColor: '#fff',
+  borderRadius: 12,
+  paddingVertical: 10,
+  paddingHorizontal: 16,
+  shadowColor: '#000',
+  shadowOpacity: 0.1,
+  shadowOffset: { width: 0, height: 4 },
+  shadowRadius: 10,
+  elevation: 10,
+  borderWidth: 1,
+  borderColor: '#E5E7EB',
+},
+
+menuItemText: {
+  paddingVertical: 8,
+  fontSize: 15,
+  color: '#1F2937',
+},
+
+
   notificationItem: {
     fontSize: 15,
     color: '#1F2937',

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, ActivityIndicator, FlatList, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { useNavigation, useRouter } from 'expo-router';
 import { Calendar } from 'react-native-calendars';
 import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -9,7 +9,7 @@ import API from '@/services/api';
 
 // URL de base à configurer depuis l'environnement ou les paramètres de l'application
 
-const BASE_URL = 'http://192.168.100.16:8080/api/sessions';
+const BASE_URL = 'http://192.168.110.138:8080/api/sessions';
 
 // Interfaces améliorées
 interface Adherent {
@@ -114,8 +114,7 @@ export default function CalendarScreen() {
   const [currentAdherent, setCurrentAdherent] = useState<Adherent | null>(null);
   const [informations, setInformations] = useState<Information[]>([]);
   const [competitions, setCompetitions] = useState<Competition[]>([]);
-  const router = useRouter();
-
+  const navigation = useNavigation();
   // Obtenir le mois et l'année actuels pour la requête initiale
   const currentDate = new Date();
   const currentMonth = currentDate.getMonth() + 1;
@@ -171,7 +170,7 @@ useEffect(() => {
       }
 
       console.log('Fetching competitions for parentId:', parentId);
-      const res = await axios.get(`http://192.168.100.16:8080/api/competitions/competitions/parent/${parentId}`, {
+      const res = await axios.get(`http://192.168.110.138:8080/api/competitions/competitions/parent/${parentId}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
 
@@ -194,7 +193,7 @@ useEffect(() => {
       }
 
       console.log('Fetching informations for parentId:', parentId);
-      const response = await axios.get(`http://192.168.100.16:8080/api/informations/by-parent/${parentId}`, {
+      const response = await axios.get(`http://192.168.110.138:8080/api/informations/by-parent/${parentId}`, {
         headers: {
           Authorization: `Bearer ${token}`,
         },
@@ -250,7 +249,7 @@ useEffect(() => {
       }
 
       // 👉 Appel API pour récupérer le parent et ses adhérents
-      const response = await axios.get('http://192.168.100.16:8080/api/parents/me', {
+      const response = await axios.get('http://192.168.110.138:8080/api/parents/me', {
         headers: {
           Authorization: `Bearer ${token}`,
         },
@@ -571,10 +570,10 @@ useEffect(() => {
     <View style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-          <Ionicons name="arrow-back" size={24} color="#6D28D9" />
+        <TouchableOpacity onPress={() => navigation.toggleDrawer()}>
+          <Ionicons name="menu" size={24} color="#6D28D9" />
         </TouchableOpacity>
-        <Text style={styles.title}>Planning des Activités</Text>
+        <Text style={styles.title}>    Planning des Activités</Text>
       </View>
 
       <ScrollView showsVerticalScrollIndicator={false}>

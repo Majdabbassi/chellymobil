@@ -13,7 +13,7 @@ import axios from 'axios';
 import Constants from 'expo-constants';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-const API_URL = Constants.expoConfig?.extra?.apiUrl ?? 'http://192.168.100.16:8080';
+const API_URL = Constants.expoConfig?.extra?.apiUrl ?? 'http://192.168.110.138:8080';
 
 export default function CompetitionDetailsScreen() {
   const { id } = useLocalSearchParams();
@@ -60,7 +60,7 @@ export default function CompetitionDetailsScreen() {
     <ScrollView contentContainerStyle={styles.container}>
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+        <TouchableOpacity onPress={() => router.push('/competition')} style={styles.backButton}>
           <Text style={styles.backArrow}>←</Text>
         </TouchableOpacity>
         <Text style={styles.title}>{competition.nom}</Text>
