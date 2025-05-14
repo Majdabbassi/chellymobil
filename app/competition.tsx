@@ -12,7 +12,7 @@ import { router } from 'expo-router';
 import Constants from 'expo-constants';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-const API_URL = Constants.expoConfig?.extra?.apiUrl ?? 'http://192.168.64.138:8080';
+const API_URL = Constants.expoConfig?.extra?.apiUrl ?? 'http://192.168.100.16:8080';
 
 export default function CompetitionListScreen() {
   const [competitions, setCompetitions] = useState([]);

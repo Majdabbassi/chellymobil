@@ -358,20 +358,18 @@ const handleUploadDocument = async () => {
     const blob = await getBlobFromUri(file.uri);
 
     const formData = new FormData();
-    formData.append('file', {
-      uri: file.uri,
-      name: file.name || 'document.pdf',
-      type: file.mimeType || 'application/pdf',
-    } as any); // `as any` pour éviter une erreur TS sur le champ `uri`
+    formData.append('file', blob, file.name); // ✅ Ici on envoie le BLOB avec un nom
 
     const token = await AsyncStorage.getItem('token');
 
-    const response = await axios.post(`${API_BASE_URL}/api/documents/upload`, formData, {
+    const response = await fetch(`http://localhost:8080/api/documents/upload`, {
+      method: 'POST',
       headers: {
-        'Content-Type': 'multipart/form-data',
         'Authorization': `Bearer ${token}`,
       },
+      body: formData,
     });
+
 
     console.log("✅ Upload réussi:", response.data);
     Alert.alert("Succès", "Document uploadé avec succès !");
