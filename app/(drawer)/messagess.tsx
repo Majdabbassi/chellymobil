@@ -12,8 +12,8 @@ import {
   ScrollView,
   Modal,
 } from 'react-native';
-import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
-import { router } from 'expo-router';
+import { Feather, Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { router, useNavigation } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { archiveConversation, deleteConversation, getAllMessages, markMessageAsSeen, searchMessages } from '@/services/messageService';
 import { getAllUsers } from '@/services/UserService';
@@ -93,7 +93,7 @@ const mapMessagesToChats = (
     // Trouver l'utilisateur associé au contact
     const user = allUsers.find(u => u.id.toString() === contactId.toString());
     const rawBase64 = user?.imageBase64;
-    const contactAvatar = makeImageSource(rawBase64) || require('../assets/images/confirmation.png');
+    const contactAvatar = makeImageSource(rawBase64) || require('../../assets/images/confirmation.png');
 
     if (!contactMap.has(contactId)) {
       contactMap.set(contactId, {
@@ -200,6 +200,7 @@ const MyMessenger = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [allUsers, setAllUsers] = useState<any[]>([]);
   const [showUserListModal, setShowUserListModal] = useState(false);
+  const navigation = useNavigation();
   const [currentUserId, setCurrentUserId] = useState<number | null>(null); // Added currentUserId state
   // juste après tes useState…
 const toggleFavorite = (chatId: string) => {
@@ -610,7 +611,7 @@ useEffect(() => {
                 console.error("Erreur chargement image:", e.nativeEvent.error);
                 setChats(prevChats => prevChats.map(chat => 
                   chat.id === item.id 
-                    ? { ...chat, avatar: require('../assets/images/confirmation.png') }
+                    ? { ...chat, avatar: require('../../assets/images/confirmation.png') }
                     : chat
                 ));
               }}
@@ -841,10 +842,10 @@ useEffect(() => {
       {/* En-tête de l'application */}
       <View style={styles.header}>
         <View style={styles.headerContent}>
-          <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-            <Feather name="arrow-left" size={24} color="white" />
+          <TouchableOpacity onPress={() => navigation.toggleDrawer()}>
+            <Ionicons name="menu" size={24} color="#fff" />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>ChellyChat</Text>
+          <Text style={styles.headerTitle}>   ChellyChat</Text>
           <View style={styles.headerButtons}>
          
             <TouchableOpacity 
@@ -957,7 +958,7 @@ useEffect(() => {
                 name: `${item.nom} ${item.prenom}`,
                 avatar: item.imageBase64
                   ? { uri: item.imageBase64 }
-                  : require('../assets/images/confirmation.png'),
+                  : require('../../assets/images/confirmation.png'),
                 lastMessage: {
                   id: 'new',
                   text: '',
@@ -974,7 +975,7 @@ useEffect(() => {
               source={
                 item.imageBase64
                   ? { uri: item.imageBase64 }
-                  : require('../assets/images/confirmation.png')
+                  : require('../../assets/images/confirmation.png')
               }
               style={styles.userAvatar}
             />

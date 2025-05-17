@@ -231,7 +231,7 @@ export default function PaymentConfirmationScreen() {
             <Text style={styles.text}>Votre réservation a été confirmée.</Text>
 
             <Image
-              source={require('C:/Users/lenovo/Desktop/chellymobil-fresh/assets/images/confirmation.png')}
+              source={require('@/assets/images/confirmation.png')}
               style={styles.image}
               resizeMode="contain"
             />

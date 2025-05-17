@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Image } from 'react-native';
 import { DrawerContentScrollView } from '@react-navigation/drawer';
 import { Ionicons } from '@expo/vector-icons';
+import { router } from 'expo-router';
 
 interface CustomDrawerProps {
   user: {
@@ -20,13 +21,17 @@ export default function CustomDrawerContent({ user, ...props }: CustomDrawerProp
         <Text style={styles.email}>{user.email}</Text>
       </View>
 
+      <TouchableOpacity style={styles.menuItem} onPress={() => props.navigation.navigate('ParentDashboardScreen')}>
+        <Ionicons name="home-outline" size={20} color="#6D28D9" />
+        <Text style={styles.menuText}>Dashboard</Text>
+      </TouchableOpacity>
 
       <TouchableOpacity style={styles.menuItem} onPress={() => props.navigation.navigate('calendar')}>
-        <Ionicons name="trophy-outline" size={20} color="#6D28D9" />
+        <Ionicons name="calendar-outline" size={20} color="#6D28D9" />
         <Text style={styles.menuText}>Calendrier</Text>
       </TouchableOpacity>
       <TouchableOpacity style={styles.menuItem} onPress={() => props.navigation.navigate('activities')}>
-        <Ionicons name="trophy-outline" size={20} color="#6D28D9" />
+        <Ionicons name="barbell-outline" size={20} color="#6D28D9" />
         <Text style={styles.menuText}>Activities</Text>
       </TouchableOpacity>
       <TouchableOpacity style={styles.menuItem} onPress={() => props.navigation.navigate('competition')}>
@@ -34,23 +39,23 @@ export default function CustomDrawerContent({ user, ...props }: CustomDrawerProp
         <Text style={styles.menuText}>Compétitions</Text>
       </TouchableOpacity>
       <TouchableOpacity style={styles.menuItem} onPress={() => props.navigation.navigate('PaymentSelectionScreen')}>
-        <Ionicons name="trophy-outline" size={20} color="#6D28D9" />
+        <Ionicons name="card-outline" size={20} color="#6D28D9" />
         <Text style={styles.menuText}>Payments</Text>
       </TouchableOpacity>
       <TouchableOpacity style={styles.menuItem} onPress={() => props.navigation.navigate('messagess')}>
-        <Ionicons name="trophy-outline" size={20} color="#6D28D9" />
+        <Ionicons name="chatbubbles-outline" size={20} color="#6D28D9" />
         <Text style={styles.menuText}>Messages</Text>
       </TouchableOpacity>
-      <TouchableOpacity style={styles.menuItem} onPress={() => props.navigation.navigate('/')}>
-        <Ionicons name="trophy-outline" size={20} color="#6D28D9" />
+      <TouchableOpacity style={styles.menuItem} onPress={() => router.push('/NotificationsScreen')}>
+        <Ionicons name="notifications-outline" size={20} color="#6D28D9" />
         <Text style={styles.menuText}>Notifications</Text>
       </TouchableOpacity>
       <TouchableOpacity style={styles.menuItem} onPress={() => props.navigation.navigate('ParametresScreen')}>
-        <Ionicons name="trophy-outline" size={20} color="#6D28D9" />
+        <Ionicons name="settings-outline" size={20} color="#6D28D9" />
         <Text style={styles.menuText}>Parametres</Text>
       </TouchableOpacity>
       <TouchableOpacity style={styles.menuItem} onPress={() => props.navigation.navigate('/')}>
-        <Ionicons name="trophy-outline" size={20} color="#6D28D9" />
+        <Ionicons name="people-outline" size={20} color="#6D28D9" />
         <Text style={styles.menuText}>Mes enfants</Text>
       </TouchableOpacity>
       <TouchableOpacity

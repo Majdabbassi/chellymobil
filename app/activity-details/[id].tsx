@@ -17,6 +17,8 @@ import { Modal, FlatList, Pressable } from 'react-native';
 
 const API_BASE_URL = Constants?.expoConfig?.extra?.apiUrl ?? 'http://192.168.42.53:8080';
 
+const API_BASE_URL = Constants?.expoConfig?.extra?.apiUrl ?? 'http://192.168.110.138:8080';
+
 export default function ActivityDetailsScreen() {
   const { id } = useLocalSearchParams();
   const [activity, setActivity] = useState(null);
@@ -120,7 +122,7 @@ const markedDates = sessionEvents.reduce((acc, session) => {
   return (
     <ScrollView contentContainerStyle={styles.container}>
         <View style={styles.headerContainer}>
-            <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+            <TouchableOpacity onPress={() => router.push('/activities')} style={styles.backButton}>
                 <Text style={styles.backArrow}>←</Text>
             </TouchableOpacity>
             <Text style={styles.headerTitle}>{activity.nom}</Text>

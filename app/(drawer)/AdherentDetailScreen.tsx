@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, Image } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useLocalSearchParams, router } from 'expo-router';
+import { useLocalSearchParams, router, useNavigation } from 'expo-router';
 import { 
   getActivitiesByAdherent, 
   getAdherentById, 
@@ -66,7 +66,7 @@ interface AdherentFormattedData {
 export default function AdherentDetailScreen() {
   const { adherentId } = useLocalSearchParams();
   const parsedAdherentId = Array.isArray(adherentId) ? adherentId[0] : adherentId;
-  
+  const navigation = useNavigation();
   const [adherentData, setAdherentData] = useState<AdherentFormattedData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -223,8 +223,8 @@ export default function AdherentDetailScreen() {
     <View style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
-          <Ionicons name="arrow-back" size={24} color="#6D28D9" />
+        <TouchableOpacity onPress={() => navigation.toggleDrawer()}>
+          <Ionicons name="menu" size={24} color="#6D28D9" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Détails de l'Adhérent</Text>
         <View style={{ width: 24 }} />
