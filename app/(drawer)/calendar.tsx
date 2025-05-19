@@ -9,7 +9,7 @@ import API from '@/services/api';
 
 // URL de base à configurer depuis l'environnement ou les paramètres de l'application
 
-const BASE_URL = 'http://192.168.110.138:8080/api/sessions';
+const BASE_URL = 'http://192.168.1.5:8080/api/sessions';
 
 // Interfaces améliorées
 interface Adherent {
@@ -170,7 +170,7 @@ useEffect(() => {
       }
 
       console.log('Fetching competitions for parentId:', parentId);
-      const res = await axios.get(`http://192.168.110.138:8080/api/competitions/competitions/parent/${parentId}`, {
+      const res = await axios.get(`http://192.168.1.5:8080/api/competitions/competitions/parent/${parentId}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
 
@@ -193,7 +193,7 @@ useEffect(() => {
       }
 
       console.log('Fetching informations for parentId:', parentId);
-      const response = await axios.get(`http://192.168.110.138:8080/api/informations/by-parent/${parentId}`, {
+      const response = await axios.get(`http://192.168.1.5:8080/api/informations/by-parent/${parentId}`, {
         headers: {
           Authorization: `Bearer ${token}`,
         },
@@ -249,7 +249,7 @@ useEffect(() => {
       }
 
       // 👉 Appel API pour récupérer le parent et ses adhérents
-      const response = await axios.get('http://192.168.110.138:8080/api/parents/me', {
+      const response = await axios.get('http://192.168.1.5:8080/api/parents/me', {
         headers: {
           Authorization: `Bearer ${token}`,
         },

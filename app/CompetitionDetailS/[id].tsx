@@ -13,7 +13,7 @@ import axios from 'axios';
 import Constants from 'expo-constants';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-const API_URL = Constants.expoConfig?.extra?.apiUrl ?? 'http://192.168.110.138:8080';
+const API_URL = Constants.expoConfig?.extra?.apiUrl ?? 'http://192.168.1.5:8080';
 
 export default function CompetitionDetailsScreen() {
   const { id } = useLocalSearchParams();

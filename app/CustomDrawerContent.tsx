@@ -54,7 +54,7 @@ export default function CustomDrawerContent({ user, ...props }: CustomDrawerProp
         <Ionicons name="settings-outline" size={20} color="#6D28D9" />
         <Text style={styles.menuText}>Parametres</Text>
       </TouchableOpacity>
-      <TouchableOpacity style={styles.menuItem} onPress={() => props.navigation.navigate('/')}>
+      <TouchableOpacity style={styles.menuItem} onPress={() => props.navigation.navigate('ChildrenListScreen')}>
         <Ionicons name="people-outline" size={20} color="#6D28D9" />
         <Text style={styles.menuText}>Mes enfants</Text>
       </TouchableOpacity>

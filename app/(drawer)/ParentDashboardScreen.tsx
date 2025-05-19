@@ -4,7 +4,6 @@ import { Ionicons } from '@expo/vector-icons';
 import { router, useNavigation } from 'expo-router';
 import { DrawerActions } from '@react-navigation/native';
 import { getParentById } from '@/services/parentService';
-import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import { registerForPushNotificationsAsync } from '@/services/firebase-notifications';
 import * as Notifications from 'expo-notifications';
