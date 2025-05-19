@@ -557,7 +557,7 @@ const styles = StyleSheet.create({
   shadowOpacity: 0.1,
   shadowRadius: 8,
   elevation: 10,
-  marginTop: 130,     // 👈 Appears below the bell
+  marginTop: 70,     // 👈 Appears below the bell
   marginRight: 25,   // 👈 Aligns from the right
   width: 260,
 },

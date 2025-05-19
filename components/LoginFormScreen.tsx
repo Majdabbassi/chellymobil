@@ -5,6 +5,7 @@ import { useRouter } from 'expo-router';
 import { MotiView } from 'moti';
 import API from '@/services/api';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import jwt_decode from 'jwt-decode';
 
 export default function LoginFormScreen() {
   const [email, setEmail] = useState('');
@@ -14,54 +15,59 @@ export default function LoginFormScreen() {
   const router = useRouter();
   const handleLogin = async () => {
     try {
-      // 🔄 Vider le stockage uniquement s’il y a des clés
       const keys = await AsyncStorage.getAllKeys();
       if (keys.length > 0) {
         await AsyncStorage.clear();
         console.log('✅ AsyncStorage vidé avec succès');
       }
-  
-      // 🔐 Connexion API
+
       const response = await API.post('/auth/login', {
         email,
         motDePasse: password,
       });
-      console.log('LOGIN RESPONSE', response.data); // Ajoute ceci
-  
-      const { token, role, id } = response.data;
-  
-      await AsyncStorage.setItem('token', token);
-      await AsyncStorage.setItem('role', role);
-      await AsyncStorage.setItem('userId', id.toString());
-  
-      if (role === 'PARENT') {
-        const parentResponse = await API.get(`/parents/${id}`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
 
-        interface ParentData {
-          id: number;
-          nom: string;
-          prenom: string;
-          email: string;
-          telephone: string;
-        }
+      console.log('LOGIN RESPONSE', response.data);
 
-        const { id: parentId, nom, prenom, email, telephone } = parentResponse.data as ParentData;
+      const { token, id } = response.data;
 
-        const minimalParentData = { id: parentId, nom, prenom, email, telephone };
-        await AsyncStorage.setItem('parentId', parentId.toString());
+      // 🔍 Vérification du rôle depuis le token JWT
+      const decoded = jwt_decode(token);
+      console.log(decoded);
+      const authorities = Array.isArray(decoded?.authorities)
+        ? decoded.authorities
+        : [decoded?.authorities];
 
-        await AsyncStorage.setItem('parent', JSON.stringify(minimalParentData));
+      if (!authorities.includes('PARENT')) {
+        Alert.alert(
+          'Accès refusé',
+          'Seuls les parents peuvent utiliser l’application mobile.'
+        );
+        return;
       }
-  
+
+      // ✅ Stockage du token et informations si PARENT
+      await AsyncStorage.setItem('token', token);
+      await AsyncStorage.setItem('role', 'PARENT');
+      await AsyncStorage.setItem('userId', id.toString());
+
+      const parentResponse = await API.get(`/parents/${id}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      const { id: parentId, nom, prenom, email: parentEmail, telephone } = parentResponse.data;
+      const minimalParentData = { id: parentId, nom, prenom, email: parentEmail, telephone };
+
+      await AsyncStorage.setItem('parentId', parentId.toString());
+      await AsyncStorage.setItem('parent', JSON.stringify(minimalParentData));
+
       router.replace('/(drawer)/ParentDashboardScreen');
-  
+
     } catch (error: any) {
       console.error('❌ Erreur login:', error.response?.data || error.message);
       Alert.alert('Erreur de connexion', error.response?.data?.message || 'Impossible de se connecter.');
     }
   };
+
   
   
   
