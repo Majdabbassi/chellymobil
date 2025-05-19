@@ -41,12 +41,7 @@
       "typedRoutes": true
     },
     "extra": {
-<<<<<<< HEAD
       "apiIp": "192.168.1.5",  
-=======
-      "apiIp": "192.168.42.53",  
-      "apiIp": "192.168.110.138",  
->>>>>>> 973ca0b84d65e83c44828fb222f74f824aad65a9
       "router": {},
       "eas": {
         "projectId": "14e6a1e0-b2d3-4a81-bcb4-afeb3de511c6"

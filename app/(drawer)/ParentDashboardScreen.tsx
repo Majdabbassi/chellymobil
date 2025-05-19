@@ -313,18 +313,6 @@ const adherentsMapped = await Promise.all(
  
     fetchParent();
   }, []);
- 
-  const renderProgressBar = (progress: number) => {
-    return (
-      <View style={styles.progressContainer}>
-        <View style={[styles.progressBar, { width: `${progress}%` }]} />
-        <View style={styles.progressTextContainer}>
-          <Text style={styles.progressText}>{progress}%</Text>
-          <Text style={styles.progressLabel}>Complété</Text>
-        </View>
-      </View>
-    );
-  };
   
   return (
     <View style={styles.container}>
@@ -424,261 +412,33 @@ const adherentsMapped = await Promise.all(
           </View>
         </View>
        
-        {/* Quick Links */}
+       {/* Quick links */}
         <View style={styles.quickLinksContainer}>
-          {/* First Row */}
-          <View style={styles.quickLinksRow}>
-            <TouchableOpacity style={styles.quickLink} onPress={() => router.push('/calendar')}>
-              <View style={[styles.quickLinkIcon, { backgroundColor: '#F0F4FF' }]}>
-                <Ionicons name="calendar" size={22} color="#6366F1" />
+          {[
+            { icon: 'calendar', text: 'Calendrier', color: '#6366F1', bg: '#F0F4FF', route: '/calendar' },
+            { icon: 'card-outline', text: 'Paiements', color: '#8B5CF6', bg: '#F5F3FF', route: '/PaymentSelectionScreen' },
+            { icon: 'chatbubbles-outline', text: 'Messages', color: '#10B981', bg: '#F0FDF4', route: '/messagess' },
+            { icon: 'notifications-outline', text: 'Notifications', color: '#A855F7', bg: '#FDF4FF', route: '/NotificationsScreen' },
+            { icon: 'settings-outline', text: 'Paramètres', color: '#EF4444', bg: '#FEF2F2', route: '/ParametresScreen' },
+            { icon: 'football-outline', text: 'Activités', color: '#0EA5E9', bg: '#E0F2FE', route: '/activities' },
+            { icon: 'trophy-outline', text: 'Compétitions', color: '#F59E0B', bg: '#FEFCE8', route: '/competition' },
+            { icon: 'people-outline', text: 'Mes enfants', color: '#6366F1', bg: '#EDE9FE', route: '/ChildrenListScreen' },
+          ].map((item, i) => (
+            <TouchableOpacity key={i} style={styles.quickLink} onPress={() => router.push(item.route)}>
+              <View style={[styles.quickLinkIcon, { backgroundColor: item.bg }]}>
+                <Ionicons name={item.icon} size={22} color={item.color} />
               </View>
-              <Text style={styles.quickLinkText}>Calendrier</Text>
+              <Text style={styles.quickLinkText}>{item.text}</Text>
             </TouchableOpacity>
-
-            <TouchableOpacity style={styles.quickLink} onPress={() => router.push('/PaymentSelectionScreen')}>
-              <View style={[styles.quickLinkIcon, { backgroundColor: '#F5F3FF' }]}>
-                <Ionicons name="card-outline" size={22} color="#8B5CF6" />
-              </View>
-              <Text style={styles.quickLinkText}>Paiements</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity style={styles.quickLink} onPress={() => router.push('/messagess')}>
-              <View style={[styles.quickLinkIcon, { backgroundColor: '#F0FDF4' }]}>
-                <Ionicons name="chatbubbles-outline" size={22} color="#10B981" />
-              </View>
-              <Text style={styles.quickLinkText}>Messages</Text>
-            </TouchableOpacity>
-          </View>
-
-          {/* Second Row */}
-          <View style={styles.quickLinksRow}>
-            <TouchableOpacity style={styles.quickLink} onPress={() => router.push('/ParametresScreen')}>
-              <View style={[styles.quickLinkIcon, { backgroundColor: '#FEF2F2' }]}>
-                <Ionicons name="settings-outline" size={22} color="#EF4444" />
-              </View>
-              <Text style={styles.quickLinkText}>Paramètres</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity style={styles.quickLink} onPress={() => router.push('/activities')}>
-              <View style={[styles.quickLinkIcon, { backgroundColor: '#E0F2FE' }]}>
-                <Ionicons name="football-outline" size={22} color="#0EA5E9" />
-              </View>
-              <Text style={styles.quickLinkText}>Activités</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity style={styles.quickLink} onPress={() => router.push('/competition')}>
-              <View style={[styles.quickLinkIcon, { backgroundColor: '#FEFCE8' }]}>
-                <Ionicons name="trophy-outline" size={22} color="#F59E0B" />
-              </View>
-              <Text style={styles.quickLinkText}>Compétitions</Text>
-            </TouchableOpacity>
-          </View>
+          ))}
         </View>
 
-       
-        {/* Adhérents Section Title */}
-        <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Mes Adhérents</Text>
-          <TouchableOpacity style={styles.sectionAction}>
-            <Text style={styles.sectionActionText}>Voir tout</Text>
-            <Ionicons name="chevron-forward" size={16} color="#8B5CF6" />
-          </TouchableOpacity>
-        </View>
-       
-        {/* Adhérents Cards */}
-        {adherents && adherents.length > 0 ? (
-          adherents
-            .filter(child => child && child.nom) // sécurité
-            .map((child, i) => (
-              <View key={i} style={styles.childCard}>
-                <View style={styles.childHeader}>
-                  <View style={styles.childAvatar}>
-                    {child.avatar ? (
-                      <Image 
-                        source={getImageSource(child.avatar)} 
-                        style={styles.avatarImage} 
-                        onError={(e) => console.error(`Erreur image adhérent ${child.id}:`, e.nativeEvent.error)}
-                      />
-                    ) : (
-                      <Text style={styles.childInitials}>
-                        {child.nom?.charAt(0) ?? '?'}
-                      </Text>
-                    )}
-                  </View>
-                  <View style={styles.childInfo}>
-                    <Text style={styles.childName}>
-                      {child.prenom} {child.nom}
-                    </Text>
-                    {/* Si tu veux afficher l'âge, il doit exister dans ton DTO */}
-                    {child.age && <Text style={styles.childAge}>{child.age} ans</Text>}
-                  </View>
-      <TouchableOpacity
-  style={styles.moreButton}
-  onPress={() => setVisibleMenuId(visibleMenuId === child.id ? null : child.id)}
->
-  <Ionicons name="ellipsis-vertical" size={20} color="#8B5CF6" />
-</TouchableOpacity>
-{visibleMenuId === child.id && (
-  <>
-    {/* Transparent overlay to close on outside click */}
-    <TouchableOpacity
-      style={styles.modalBackdrop}
-      activeOpacity={1}
-      onPressOut={() => setVisibleMenuId(null)}
-    />
-
-    {/* Dropdown content shown near the icon */}
-    <View style={styles.childMenuModal}>
-      <TouchableOpacity
-        onPress={() => {
-          router.push({
-            pathname: '/AdherentDetailScreen',
-            params: { adherentId: child.id },
-          });
-          setVisibleMenuId(null);
-        }}
-      >
-        <Text style={styles.menuItemText}>👤 Voir profil</Text>
-      </TouchableOpacity>
-
-      <TouchableOpacity
-        onPress={() => {
-          alert('Modifier à implémenter');
-          setVisibleMenuId(null);
-        }}
-      >
-        <Text style={styles.menuItemText}>✏️ Modifier</Text>
-      </TouchableOpacity>
-
-      <TouchableOpacity
-        onPress={() => {
-          alert('Supprimer à implémenter');
-          setVisibleMenuId(null);
-        }}
-      >
-        <Text style={[styles.menuItemText, { color: 'red' }]}>🗑 Supprimer</Text>
-      </TouchableOpacity>
-    </View>
-  </>
-)}
-
-
-                </View>
-<View style={[styles.childContent, { flexGrow: 1 }]}>             
-       <View style={styles.nextSessionContainer}>
-                    <View style={styles.nextSessionContainer}>
-                      <Ionicons name="time-outline" size={18} color="#8B5CF6" />
-                    </View>
-                    <Text style={styles.nextSessionText}>
-                      Prochaine séance :{' '}
-                      <Text style={styles.nextSessionTime}>
-                        {child.nextSession ?? 'Non spécifiée'}
-                      </Text>
-                    </Text>
-                  </View>
-                  <Text style={styles.activityTitle}>Activités</Text>
-                  <View style={styles.activitiesList}>
-                    {(child.activities ?? []).map((act, j) => (
-                      <View key={j} style={styles.activityTag}>
-                        <Text style={styles.activityText}>{act}</Text>
-                      </View>
-                    ))}
-                  </View>
-                  <Text style={styles.progressTitle}>Progression globale</Text>
-                  {renderProgressBar(child.progress ?? 0)}
-                  <View style={styles.buttonsRow}>
-                    <TouchableOpacity
-                      style={styles.secondaryButton}
-                      onPress={() => router.push('/calendar')}
-                    >
-                      <Ionicons name="calendar-outline" size={18} color="#8B5CF6" />
-                      <Text style={styles.secondaryButtonText}>Planning</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      style={styles.detailsButton}
-                      onPress={() => router.push({
-                        pathname: '/AdherentDetailScreen',
-                        params: { adherentId: child.id }
-                      })}
-                    >
-                      <Text style={styles.detailsButtonText}>Voir les détails</Text>
-                      <Ionicons name="arrow-forward" size={16} color="#fff" />
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      style={styles.detailsButton}
-                      onPress={() => router.push({
-                        pathname: '/AdherentPerformanceScreen',
-                        params: { adherentId: child.id }
-                      })}
-                    >
-                      <Text style={styles.detailsButtonText}>Voir les performances</Text>
-                      <Ionicons name="arrow-forward" size={16} color="#fff" />
-                    </TouchableOpacity>
-                  </View>
-                </View>
-              </View>
-            ))
-        ) : (
-          <View style={styles.noAdherentsContainer}>
-            <Text style={styles.noAdherentsText}>Aucun adhérent trouvé</Text>
-          </View>
-        )}
-        {/* Upcoming Events Section */}
-        <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Événements à venir</Text>
-          <TouchableOpacity
-            style={styles.sectionAction}
-            onPress={() => router.push('/calendar')}
-          >
-            <Text style={styles.sectionActionText}>Calendrier</Text>
-            <Ionicons name="chevron-forward" size={16} color="#8B5CF6" />
-          </TouchableOpacity>
-        </View>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.eventsScrollView}>
-          {competitions && competitions.length > 0 ? (
-            competitions.map((comp, index) => (
-              <TouchableOpacity
-                key={index}
-                style={styles.eventCard}
-                onPress={() => router.push({
-                  pathname: '/calendar', // Replace with a valid path
-                  params: { competitionId: comp.id }
-                })}
-              >
-                <View style={styles.eventDateBadge}>
-                  <Text style={styles.eventDateDay}>
-                    {new Date(comp.date).getDate()}
-                  </Text>
-                  <Text style={styles.eventDateMonth}>
-                    {new Date(comp.date).toLocaleString('fr-FR', { month: 'short' }).toUpperCase()}
-                  </Text>
-                </View>
-                <View style={styles.eventInfo}>
-                  <Text style={styles.eventTitle}>{comp.nom}</Text>
-                  <View style={styles.eventDetails}>
-                    <Ionicons name="location-outline" size={14} color="#6B7280" />
-                    <Text style={styles.eventDetailsText}>{comp.lieu || 'Lieu non précisé'}</Text>
-                  </View>
-                  <View style={styles.eventDetails}>
-                    <Ionicons name="time-outline" size={14} color="#6B7280" />
-                    <Text style={styles.eventDetailsText}>
-                      {new Date(comp.date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                    </Text>
-                  </View>
-                </View>
-              </TouchableOpacity>
-            ))
-          ) : (
-            <View style={styles.noEventsContainer}>
-              <Text style={styles.noEventsText}>Aucun événement à venir</Text>
-            </View>
-          )}
-        </ScrollView>
+      
         {/* Bottom Navigation */}
         <View style={styles.bottomNav}>
           <TouchableOpacity
             style={styles.navItem}
-            onPress={() => router.push('(tabs)/dashboard')}
+            onPress={() => router.push('/')}
           >
             <Ionicons name="home" size={24} color="#8B5CF6" />
             <Text style={styles.navText}>Accueil</Text>
@@ -722,8 +482,8 @@ const styles = StyleSheet.create({
     opacity: 0.02, // More subtle pattern
   },
   scrollContent: {
-    paddingTop: 72,
-    paddingBottom: 180, // More space at bottom for comfortable scrolling
+    paddingTop: 10,
+    paddingBottom: 280, // More space at bottom for comfortable scrolling
   },
   
   // Header Section - More elegant & modern
@@ -816,52 +576,7 @@ separator: {
   backgroundColor: '#E5E7EB',
   marginVertical: 6,
 },
-modalBackdrop: {
-  position: 'absolute',
-  top: 0,
-  left: 0,
-  bottom: 0,
-  right: 0,
-  zIndex: 998,
-  backgroundColor: 'transparent',
-},
 
-childMenuModal: {
-  position: 'absolute',
-  top: 60, // Adjust based on your layout
-  right: 20,
-  zIndex: 1111,
-  backgroundColor: '#fff',
-  borderRadius: 12,
-  paddingVertical: 10,
-  paddingHorizontal: 16,
-  shadowColor: '#000',
-  shadowOpacity: 0.1,
-  shadowOffset: { width: 0, height: 4 },
-  shadowRadius: 10,
-  elevation: 10,
-  borderWidth: 1,
-  borderColor: '#E5E7EB',
-},
-
-menuItemText: {
-  paddingVertical: 8,
-  fontSize: 15,
-  color: '#1F2937',
-},
-
-
-  notificationItem: {
-    fontSize: 15,
-    color: '#1F2937',
-    paddingVertical: 12,
-    flexDirection: 'row',
-    flexWrap: 'nowrap',
-    borderBottomWidth: 1,
-    borderBottomColor: '#F0EBFF',
-    paddingBottom: 14,
-    marginBottom: 12,
-  },
 
   // Parent Info Card - Premium glass-like design
   parentInfoCard: {
@@ -872,7 +587,7 @@ menuItemText: {
     paddingVertical: 28,
     paddingHorizontal: 24,
     marginHorizontal: 24,
-    marginBottom: 38,
+    marginBottom: 20,
     borderWidth: 1,
     borderColor: '#D8CBFF',
     shadowColor: '#5D3FD3',
@@ -927,358 +642,38 @@ menuItemText: {
   },
 
   // Quick Links - Modern tile style
-  quickLinksContainer: {
-  paddingHorizontal: 30,
-  marginTop: 20,
-},
-quickLinksRow: {
+ quickLinksContainer: {
   flexDirection: 'row',
+  flexWrap: 'wrap',
   justifyContent: 'space-between',
-  marginBottom: 18,
+  paddingHorizontal: 20,
+  marginBottom: 30,
 },
+
   quickLink: {
-    alignItems: 'center',
-    width: (width - 100) / 4, // Better spacing distribution
-  },
-  quickLinkIcon: {
-    width: 62,
-    height: 62,
-    borderRadius: 22,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 12,
-    shadowColor: '#5D3FD3',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.15,
-    shadowRadius: 12,
-    elevation: 4,
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1,
-    borderColor: '#EBE5FF',
-  },
-  quickLinkText: {
-    fontSize: 12,
-    color: '#4B5563',
-    fontWeight: '600',
-    textAlign: 'center',
-  },
-
-  // Section Headers - More distinctive with subtle indicators
-  sectionHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 24,
-    marginBottom: 20,
-    marginTop: 16,
-  },
-  sectionTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#1F2937',
-    letterSpacing: 0.4,
-    position: 'relative',
-    paddingLeft: 12,
-    borderLeftWidth: 3,
-    borderLeftColor: '#5D3FD3',
-  },
-  sectionAction: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#F0EBFF',
-    paddingVertical: 8,
-    paddingHorizontal: 14,
-    borderRadius: 14,
-  },
-  sectionActionText: {
-    color: '#5D3FD3',
-    fontSize: 15,
-    marginRight: 8,
-    fontWeight: '600',
-  },
-
-  // Child Cards - Neumorphic inspired design
-  childCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 28,
-    overflow: 'hidden',
-    marginHorizontal: 24,
-    marginBottom: 36,
-    paddingBottom: 16,
-    borderWidth: 1,
-    borderColor: '#EBE5FF',
-    shadowColor: '#5D3FD3',
-    shadowOffset: { width: 0, height: 12 },
-    shadowOpacity: 0.12,
-    shadowRadius: 24,
-    elevation: 8,
-  },
-  
-  childHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 20,
-    borderBottomWidth: 1,
-    borderBottomColor: '#EBE5FF',
-    backgroundColor: '#FCFAFF',
-    marginTop: 12,
-  },
-  
-  childAvatar: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: '#5D3FD3',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 18,
-    borderWidth: 2,
-    borderColor: '#FFFFFF',
-    shadowColor: '#5D3FD3',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
-    elevation: 4,
-  },
-  childInitials: {
-    color: '#fff',
-    fontSize: 20,
-    fontWeight: 'bold',
-  },
-  childInfo: {
-    flex: 1,
-    minWidth: 0, // Prevents text overflow
-  },
-  childName: {
-    fontSize: 19,
-    fontWeight: 'bold',
-    color: '#1F2937',
-    marginBottom: 6,
-    flexShrink: 1,
-  },
-  moreButton: {
-    padding: 12,
-    backgroundColor: '#F0EBFF',
-    borderRadius: 14,
-    width: 40,
-    height: 40,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  childContent: {
-    padding: 22,
-  },
-
-  // Next Session - More visually distinctive
-  nextSessionContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#F0EBFF',
-    borderRadius: 16,
-    padding: 16,
-    marginBottom: 22,
-    minHeight: 68,
-    shadowColor: '#5D3FD3',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 2,
-  },
-  nextSessionText: {
-    color: '#4B5563',
-    fontSize: 15,
-    lineHeight: 22,
-    flex: 1,
-    flexWrap: 'wrap',
-  },
-  nextSessionTime: {
-    color: '#5D3FD3',
-    fontWeight: 'bold',
-    fontSize: 16,
-  },
-
-  // Activities - Modernized tags
-  activityTitle: {
-    fontSize: 17,
-    fontWeight: 'bold',
-    color: '#374151',
-    marginBottom: 14,
-  },
-  activitiesList: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    marginBottom: 22,
-  },
-  activityTag: {
-    backgroundColor: '#F0EBFF',
-    borderRadius: 16,
-    paddingVertical: 9,
-    paddingHorizontal: 16,
-    marginRight: 12,
-    marginBottom: 12,
-    borderWidth: 1,
-    borderColor: '#D8CBFF',
-    shadowColor: '#5D3FD3',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 4,
-    elevation: 1,
-  },
-  activityText: {
-    color: '#5D3FD3',
-    fontSize: 15,
-    fontWeight: '600',
-  },
-
-  // Progress Section - More visual appeal
-  progressTitle: {
-    fontSize: 17,
-    fontWeight: 'bold',
-    color: '#374151',
-    marginBottom: 14,
-  },
-  progressContainer: {
-    height: 12,
-    backgroundColor: '#F3F4F6',
-    borderRadius: 6,
-    marginBottom: 12,
-    position: 'relative',
-    overflow: 'hidden',
-  },
-  progressBar: {
-    height: '100%',
-    backgroundColor: '#5D3FD3',
-    borderRadius: 6,
-  },
-  progressTextContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 22,
-  },
-  progressText: {
-    color: '#5D3FD3',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  progressLabel: {
-    color: '#4B5563',
-    fontSize: 15,
-  },
-
-  // Buttons - More interactive and polished
-  buttonsRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginTop: 12,
-    gap: 12,
-  },
-  secondaryButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#F0EBFF',
-    borderRadius: 14,
-    paddingVertical: 14,
-    paddingHorizontal: 18,
-    borderWidth: 1,
-    borderColor: '#D8CBFF',
-    shadowColor: '#5D3FD3',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 2,
-  },
-  secondaryButtonText: {
-    color: '#5D3FD3',
-    fontWeight: '600',
-    marginLeft: 10,
-    fontSize: 16,
-  },
-  detailsButton: {
-    backgroundColor: '#5D3FD3',
-    borderRadius: 14,
-    paddingVertical: 14,
-    paddingHorizontal: 18,
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    minWidth: 130,
-    marginLeft: 12,
-    marginTop: 10,
-    shadowColor: '#5D3FD3',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.25,
-    shadowRadius: 12,
-    elevation: 6,
-  },
-  detailsButtonText: {
-    color: '#FFFFFF',
-    fontWeight: 'bold',
-    marginRight: 10,
-    fontSize: 16,
-  },
-
-  // Events - More elegant cards
-  eventsScrollView: {
-    marginTop: 16,
-    paddingLeft: 24,
-    marginBottom: 36,
-  },
-  eventCard: {
-    width: 300,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 24,
-    overflow: 'hidden',
-    marginRight: 18,
-    flexDirection: 'row',
-    borderWidth: 1,
-    borderColor: '#EBE5FF',
-    shadowColor: '#5D3FD3',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.12,
-    shadowRadius: 16,
-    elevation: 6,
-  },
-  eventDateBadge: {
-    width: 76,
-    backgroundColor: '#5D3FD3',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 14,
-  },
-  eventDateDay: {
-    color: '#FFFFFF',
-    fontSize: 26,
-    fontWeight: 'bold',
-  },
-  eventDateMonth: {
-    color: '#FFFFFF',
-    fontSize: 14,
-    fontWeight: '600',
-    marginTop: 4,
-  },
-  eventInfo: {
-    flex: 1,
-    padding: 18,
-  },
-  eventTitle: {
-    fontSize: 17,
-    fontWeight: 'bold',
-    color: '#1F2937',
-    marginBottom: 12,
-  },
-  eventDetails: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  eventDetailsText: {
-    color: '#4B5563',
-    fontSize: 14,
-    marginLeft: 8,
-  },
-
+  width: '23%', // 4 items per row with some margin
+  alignItems: 'center',
+  marginBottom: 24,
+},
+ quickLinkIcon: {
+  width: 60,
+  height: 60,
+  borderRadius: 20,
+  justifyContent: 'center',
+  alignItems: 'center',
+  marginBottom: 8,
+  shadowColor: '#5D3FD3',
+  shadowOffset: { width: 0, height: 2 },
+  shadowOpacity: 0.1,
+  shadowRadius: 4,
+  elevation: 3,
+},
+quickLinkText: {
+  fontSize: 13,
+  fontWeight: '500',
+  color: '#1F2937',
+  textAlign: 'center',
+},
   // Bottom Navigation - Floating style
   bottomNav: {
     position: 'absolute',
@@ -1307,14 +702,7 @@ quickLinksRow: {
     width: 64,
     height: 64,
   },
-  activeNavItem: {
-    backgroundColor: '#F0EBFF',
-    borderRadius: 18,
-    width: 64,
-    height: 64,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
+  
   navText: {
     color: '#5D3FD3',
     fontSize: 13,
@@ -1322,114 +710,4 @@ quickLinksRow: {
     fontWeight: '600',
   },
 
-  // Empty States - More appealing visually
-  noAdherentsContainer: {
-    alignItems: 'center',
-    padding: 36,
-    backgroundColor: '#F9FAFB',
-    marginHorizontal: 24,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-    marginBottom: 30,
-    shadowColor: '#5D3FD3',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.08,
-    shadowRadius: 8,
-    elevation: 2,
-  },
-  noAdherentsText: {
-    fontSize: 17,
-    color: '#4B5563',
-    textAlign: 'center',
-    lineHeight: 26,
-  },
-  noEventsContainer: {
-    width: width - 48,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#F9FAFB',
-    padding: 40,
-    borderRadius: 24,
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-    shadowColor: '#5D3FD3',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.08,
-    shadowRadius: 8,
-    elevation: 2,
-  },
-  noEventsText: {
-    color: '#4B5563',
-    fontStyle: 'italic',
-    fontSize: 17,
-    textAlign: 'center',
-  },
-  
-  // Enhanced modern elements
-  searchContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#F0EBFF',
-    borderRadius: 18,
-    paddingHorizontal: 18,
-    paddingVertical: 14,
-    marginHorizontal: 24,
-    marginBottom: 30,
-    borderWidth: 1,
-    borderColor: '#D8CBFF',
-    shadowColor: '#5D3FD3',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 3,
-  },
-  searchInput: {
-    flex: 1,
-    marginLeft: 12,
-    fontSize: 16,
-    color: '#374151',
-  },
-  filterButton: {
-    backgroundColor: '#E4DEFF',
-    padding: 10,
-    borderRadius: 14,
-    marginLeft: 12,
-  },
-  badge: {
-    backgroundColor: '#5D3FD3',
-    paddingVertical: 5,
-    paddingHorizontal: 12,
-    borderRadius: 14,
-    marginLeft: 14,
-  },
-  badgeText: {
-    color: '#FFFFFF',
-    fontSize: 13,
-    fontWeight: 'bold',
-  },
-  notificationTitle: {
-    fontSize: 17,
-    fontWeight: 'bold',
-    color: '#1F2937',
-    marginBottom: 14,
-    borderBottomWidth: 1,
-    borderBottomColor: '#EBE5FF',
-    paddingBottom: 10,
-  },
-  cardActionButton: {
-    position: 'absolute',
-    top: 14,
-    right: 14,
-    backgroundColor: 'rgba(255, 255, 255, 0.95)',
-    borderRadius: 14,
-    padding: 8,
-    borderWidth: 1,
-    borderColor: '#EBE5FF',
-    shadowColor: '#5D3FD3',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 4,
-    elevation: 2,
-  }
 });
