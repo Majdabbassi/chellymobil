@@ -1,21 +1,21 @@
 {
   "project_info": {
-    "project_number": "714374580333",
-    "project_id": "chellysport-b6180",
-    "storage_bucket": "chellysport-b6180.firebasestorage.app"
+    "project_number": "770964753053",
+    "project_id": "chellysport",
+    "storage_bucket": "chellysport.firebasestorage.app"
   },
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:714374580333:android:f57053105081b953785764",
+        "mobilesdk_app_id": "1:770964753053:android:88ad832f2cb0628ba66274",
         "android_client_info": {
-          "package_name": "com.anasabaza.chellymobilfresh"
+          "package_name": "com.chellymobilfresh"
         }
       },
       "oauth_client": [],
       "api_key": [
         {
-          "current_key": "AIzaSyB9AvY384MW5fHFpHPqaGGZ0nlA-ISz7IM"
+          "current_key": "AIzaSyDpSvFcQlwOLr17qSoTTUsa-WdK_eMO5_k"
         }
       ],
       "services": {
@@ -26,15 +26,15 @@
     },
     {
       "client_info": {
-        "mobilesdk_app_id": "1:714374580333:android:7821f07ecf7870e7785764",
+        "mobilesdk_app_id": "1:770964753053:android:1b50ab95fbd33202a66274",
         "android_client_info": {
-          "package_name": "com.chellymobilfresh"
+          "package_name": "com.chellysport.app"
         }
       },
       "oauth_client": [],
       "api_key": [
         {
-          "current_key": "AIzaSyB9AvY384MW5fHFpHPqaGGZ0nlA-ISz7IM"
+          "current_key": "AIzaSyDpSvFcQlwOLr17qSoTTUsa-WdK_eMO5_k"
         }
       ],
       "services": {

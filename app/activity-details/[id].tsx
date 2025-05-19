@@ -15,7 +15,13 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import Constants from 'expo-constants';
 import { Modal, FlatList, Pressable } from 'react-native';
 
+<<<<<<< HEAD
 const API_BASE_URL = Constants?.expoConfig?.extra?.apiUrl ?? 'http://192.168.1.5:8080';
+=======
+const API_BASE_URL = Constants?.expoConfig?.extra?.apiUrl ?? 'http://192.168.42.53:8080';
+
+const API_BASE_URL = Constants?.expoConfig?.extra?.apiUrl ?? 'http://192.168.110.138:8080';
+>>>>>>> 973ca0b84d65e83c44828fb222f74f824aad65a9
 
 export default function ActivityDetailsScreen() {
   const { id } = useLocalSearchParams();

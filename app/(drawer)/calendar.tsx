@@ -9,7 +9,13 @@ import API from '@/services/api';
 
 // URL de base à configurer depuis l'environnement ou les paramètres de l'application
 
+<<<<<<< HEAD
 const BASE_URL = 'http://192.168.1.5:8080/api/sessions';
+=======
+const BASE_URL = 'http://192.168.42.53:8080/api/sessions';
+const BASE_URL = 'http://192.168.110.138:8080/api/sessions';
+>>>>>>> 98809261f913bb06e4dbe0b9efd3abfb92678b4d:app/(drawer)/calendar.tsx
+>>>>>>> 973ca0b84d65e83c44828fb222f74f824aad65a9
 
 // Interfaces améliorées
 interface Adherent {
@@ -170,7 +176,15 @@ useEffect(() => {
       }
 
       console.log('Fetching competitions for parentId:', parentId);
+<<<<<<< HEAD
       const res = await axios.get(`http://192.168.1.5:8080/api/competitions/competitions/parent/${parentId}`, {
+=======
+<<<<<<< HEAD:app/calendar.tsx
+      const res = await axios.get(`http://192.168.42.53:8080/api/competitions/competitions/parent/${parentId}`, {
+=======
+      const res = await axios.get(`http://192.168.110.138:8080/api/competitions/competitions/parent/${parentId}`, {
+>>>>>>> 98809261f913bb06e4dbe0b9efd3abfb92678b4d:app/(drawer)/calendar.tsx
+>>>>>>> 973ca0b84d65e83c44828fb222f74f824aad65a9
         headers: { Authorization: `Bearer ${token}` }
       });
 
@@ -193,7 +207,15 @@ useEffect(() => {
       }
 
       console.log('Fetching informations for parentId:', parentId);
+<<<<<<< HEAD
       const response = await axios.get(`http://192.168.1.5:8080/api/informations/by-parent/${parentId}`, {
+=======
+<<<<<<< HEAD:app/calendar.tsx
+      const response = await axios.get(`http://192.168.42.53:8080/api/informations/by-parent/${parentId}`, {
+=======
+      const response = await axios.get(`http://192.168.110.138:8080/api/informations/by-parent/${parentId}`, {
+>>>>>>> 98809261f913bb06e4dbe0b9efd3abfb92678b4d:app/(drawer)/calendar.tsx
+>>>>>>> 973ca0b84d65e83c44828fb222f74f824aad65a9
         headers: {
           Authorization: `Bearer ${token}`,
         },
@@ -249,7 +271,15 @@ useEffect(() => {
       }
 
       // 👉 Appel API pour récupérer le parent et ses adhérents
+<<<<<<< HEAD
       const response = await axios.get('http://192.168.1.5:8080/api/parents/me', {
+=======
+<<<<<<< HEAD:app/calendar.tsx
+      const response = await axios.get('http://192.168.42.53:8080/api/parents/me', {
+=======
+      const response = await axios.get('http://192.168.110.138:8080/api/parents/me', {
+>>>>>>> 98809261f913bb06e4dbe0b9efd3abfb92678b4d:app/(drawer)/calendar.tsx
+>>>>>>> 973ca0b84d65e83c44828fb222f74f824aad65a9
         headers: {
           Authorization: `Bearer ${token}`,
         },

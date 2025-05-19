@@ -3,6 +3,9 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import Constants from 'expo-constants';
 import { Platform } from 'react-native';
 
+// ✅ Centraliser l'IP ici (priorité à app.json / app.config.js si défini)
+const IP_ADDRESS = Constants.expoConfig?.extra?.apiIp || '192.168.42.53';
+
 // ✅ Choix intelligent de l'IP : localhost pour web, IP locale pour mobile
 const LOCAL_IP = Constants.expoConfig?.extra?.apiIp || '192.168.1.5'; // modifiable dans app.json
 const IP_ADDRESS = Platform.OS === 'web' ? 'localhost' : LOCAL_IP;
