@@ -15,23 +15,25 @@ import API from '@/services/api'; // ✅ Utilisation de l'API centralisée
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
 import { router, useNavigation } from 'expo-router';
+
 import Constants from 'expo-constants';
 import { getAdherentsOfCurrentParent, getActivitiesByAdherent, getCurrentParentInfo } from '@/services/adherent';
 import * as Linking from 'expo-linking';
 import { AdherentDTO } from '@/types/AdherentDTO';
 import { Calendar } from 'react-native-calendars';
-import { getAllActivities } from '@/services/avtivities';
+import { ActivityDTO, getAllActivities } from '@/services/avtivities';
 import AwesomeAlert from 'react-native-awesome-alerts';
+import axios from 'axios';
 
 // Get API base URL from environment variables or fallback to a default
-const API_BASE_URL = Constants?.expoConfig?.extra?.apiUrl ?? 'http://192.168.1.5:8080';
+const API_BASE_URL = Constants?.expoConfig?.extra?.apiUrl ?? 'http://192.168.227.138:8080';
 
 export default function PaymentSelectionScreen() {
   const months = ['Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin', 'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre'];
   const [sessionDates, setSessionDates] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   const [adherents, setAdherents] = useState<AdherentDTO[]>([]);
-  const [selectedAdherent, setSelectedAdherent] = useState<AdherentDTO | null>(null);
+  const [selectedAdherents, setSelectedAdherents] = useState<AdherentDTO[]>([]);
   const [selectedActivities, setSelectedActivities] = useState<string[]>([]);
   const [availableActivities, setAvailableActivities] = useState<{ id: number; nom: string; prix: number }[]>([]);
   const [selectedMonths, setSelectedMonths] = useState<string[]>([]);
@@ -44,13 +46,13 @@ export default function PaymentSelectionScreen() {
   const [selectedSessionDetails, setSelectedSessionDetails] = useState<any>(null);
   const [sessionsMap, setSessionsMap] = useState<Record<string, any>>({});
   const [paidMonths, setPaidMonths] = useState<string[]>([]);
+  const navigation = useNavigation();
   const [parentInfo, setParentInfo] = useState({
     firstName: '',
     lastName: '',
     email: '',
     phoneNumber: ''
   });
-  const navigation = useNavigation();
   const [showSuccessAlert, setShowSuccessAlert] = useState(false);
   const [alreadyPaidMonth, setAlreadyPaidMonth] = useState<string | null>(null);
 
@@ -76,45 +78,47 @@ export default function PaymentSelectionScreen() {
   }, [selectedActivities, paymentPeriodType, availableActivities]);
 
   useEffect(() => {
-    if (selectedAdherent) {
-      handleAdherentSelect(selectedAdherent);
+    if (selectedAdherents) {
+      handleAdherentSelect(selectedAdherents);
     }
   }, [paymentPeriodType]);
 
   useEffect(() => {
-    const loadSessionsForActivity = async () => {
-      if (paymentPeriodType !== 'perSession' || selectedActivities.length !== 1) {
-        setSelectedDate('');
-        setSelectedSessionDetails(null);
-        setSessionDates([]);
-        setSessionsMap({});
-        return;
-      }
+  const loadAllSessions = async () => {
+    setSelectedDate('');
+    setSelectedSessionDetails(null);
+    setSessionDates([]);
+    setSessionsMap({});
 
-      const selectedActivity = availableActivities.find(a => a.nom === selectedActivities[0]);
-      if (!selectedActivity) return;
+    try {
+      const response = await API.get(`/sessions/calendar`); // 🔁 New endpoint that fetches all sessions
+      const sessions = response.data;
 
-      try {
-        const response = await API.get(`/sessions/activite/${selectedActivity.id}`);
-        const sessions = response.data;
+      const map: Record<string, any> = {};
+      sessions.forEach((session: any) => {
+        if (session?.start && typeof session.start === 'string') {
+          const dateStr = session.start.split('T')[0];
+          if (!map[dateStr]) {
+            map[dateStr] = [];
+          }
+          map[dateStr].push(session);
+        } else {
+          console.warn('⚠️ Session ignorée : start invalide', session);
+        }
+      });
 
-        const map: Record<string, any> = {};
-        sessions.forEach((session: any) => {
-          const dateStr = session.dateTime.split('T')[0];
-          map[dateStr] = session;
-        });
 
-        setSelectedDate('');
-        setSelectedSessionDetails(null);
-        setSessionDates(Object.keys(map));
-        setSessionsMap(map);
-      } catch (error) {
-        console.error('Erreur chargement des sessions', error);
-      }
-    };
+      setSessionDates(Object.keys(map));
+      setSessionsMap(map);
+    } catch (error) {
+      console.error('Erreur chargement des sessions', error);
+    }
+  };
 
-    loadSessionsForActivity();
-  }, [selectedActivities, paymentPeriodType, availableActivities]);
+  if (paymentPeriodType === 'perSession') {
+    loadAllSessions(); // ✅ Trigger when in perSession mode
+  }
+}, [paymentPeriodType]);
 
   useEffect(() => {
     const getToken = async () => {
@@ -169,8 +173,7 @@ export default function PaymentSelectionScreen() {
                       id: typeof activity.id === 'number' ? activity.id : 0,
                       nom: typeof activity.nom === 'string' ? activity.nom : '',
                       prix: typeof activity.prix === 'number' ? activity.prix : 0,
-                      lieu: typeof activity.lieu === 'string' ? activity.lieu : '',
-                      description: typeof activity.description === 'string' ? activity.description : '',
+                      description: typeof activity?.description === 'string' ? activity.description : '',
                     };
                   } else {
                     return {
@@ -215,6 +218,9 @@ export default function PaymentSelectionScreen() {
     setSelectedMonths([]);
     setSelectedDate('');
   }, [paymentPeriodType]);
+useEffect(() => {
+  console.log('🔎 selectedSessionDetails:', selectedSessionDetails);
+}, [selectedSessionDetails]);
 
   const fetchPaidMonths = useCallback(async (activityId: number) => {
     try {
@@ -234,51 +240,41 @@ export default function PaymentSelectionScreen() {
     }
   }, [token]);
 
-  const handleAdherentSelect = useCallback(async (adherent: AdherentDTO) => {
-    setSelectedAdherent(adherent);
-    setSelectedActivities([]);
-    setAvailableActivities([]);
-    setLoading(true);
-  
-    try {
-      if (!adherent || !adherent.id) {
-        throw new Error('Adhérent invalide');
-      }
-  
-      const activities = paymentPeriodType === 'perSession'
-        ? await getAllActivities()
-        : await getActivitiesByAdherent(adherent.id);
-  
-      if (!Array.isArray(activities)) {
-        throw new Error('Format de données invalide');
-      }
-  
-      const formattedActivities = activities.map(activity => ({
-        id: 'id' in activity && typeof activity.id === 'number' ? activity.id : 0,
-        nom: activity.nom || '',
-        prix: activity.prix || 0,
-      }));
-  
-      setAvailableActivities(formattedActivities);
-      
-      if (paymentPeriodType === 'perMonth' && formattedActivities.length > 0) {
-        fetchPaidMonths(formattedActivities[0].id);
-      }
+  const handleAdherentSelect = useCallback(async (adherents: AdherentDTO[]) => {
+  setSelectedAdherents(adherents);
+  setSelectedActivities([]);
+  setAvailableActivities([]);
+  setLoading(true);
 
-      const pricesDict = formattedActivities.reduce<Record<string, number>>((dict, activity) => {
-        if (activity && activity.nom) {
-          dict[activity.nom] = activity.prix;
-        }
-        return dict;
-      }, {});
-  
-      setActivityPrices(pricesDict);
-    } catch (err) {
-      handleApiError(err, 'Erreur lors du chargement des activités');
-    } finally {
-      setLoading(false);
-    }
-  }, [handleApiError, paymentPeriodType, fetchPaidMonths]);
+  try {
+    const activities = await getAllActivities();
+
+    const formattedActivities = activities.map((activity: ActivityDTO) => ({
+      id: activity.id ?? 0,
+      nom: activity.nom ?? '',
+      prix: activity.prix ?? 0,
+      description: activity.description ?? '',
+    }));
+
+
+
+
+    setAvailableActivities(formattedActivities);
+
+    const pricesDict = formattedActivities.reduce<Record<string, number>>((dict, activity) => {
+      if (activity && activity.nom) {
+        dict[activity.nom] = activity.prix;
+      }
+      return dict;
+    }, {});
+
+    setActivityPrices(pricesDict);
+  } catch (err) {
+    handleApiError(err, 'Erreur lors du chargement des activités');
+  } finally {
+    setLoading(false);
+  }
+}, [handleApiError]);
 
   const calculateTotal = useCallback(() => {
     let total = 0;
@@ -306,21 +302,30 @@ export default function PaymentSelectionScreen() {
     return total;
   }, [selectedActivities, activityPrices, selectedMonths, paymentPeriodType, selectedDate, selectedSessionDetails]);
 
-  const isFormComplete = useCallback(() => {
-    if (!selectedAdherent || selectedActivities.length === 0 || loading) {
+ const isFormComplete = useCallback(() => {
+  if (!Array.isArray(selectedAdherents) || selectedAdherents.length === 0 || loading) {
+    return false;
+  }
+
+  switch (paymentPeriodType) {
+    case 'perSession':
+      return !!selectedDate;
+
+    case 'perMonth':
+    case 'per3Months':
+      return selectedActivities.length > 0 && selectedMonths.length > 0;
+
+    default:
       return false;
-    }
-    
-    switch(paymentPeriodType) {
-      case 'perSession':
-        return !!selectedDate;
-      case 'perMonth':
-      case 'per3Months':
-        return selectedMonths.length > 0;
-      default:
-        return false;
-    }
-  }, [selectedAdherent, selectedActivities, loading, paymentPeriodType, selectedDate, selectedMonths]);
+  }
+}, [
+  selectedAdherents,
+  selectedActivities,
+  selectedMonths,
+  selectedDate,
+  loading,
+  paymentPeriodType
+]);
 
   const validateEmail = (email: string) => {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -357,86 +362,49 @@ const handleKonnectPayment = useCallback(async () => {
   setLoading(true);
 
   try {
-    if (!selectedAdherent || typeof selectedAdherent.id !== 'number') {
-      throw new Error('Adhérent invalide');
+    if (!Array.isArray(selectedAdherents) || selectedAdherents.length === 0) {
+      throw new Error('Aucun adhérent sélectionné.');
     }
 
-    const selectedActivityObjs = availableActivities.filter(a => selectedActivities.includes(a.nom));
-    if (selectedActivityObjs.length === 0) {
-      throw new Error('Aucune activité valide sélectionnée');
-    }
-
-    if (selectedActivityObjs.length > 1) {
-      Alert.alert(
-        'Information',
-        `Pour le paiement en ligne, une seule activité peut être traitée à la fois. Nous allons procéder avec ${selectedActivityObjs[0].nom}.`,
-        [{ text: 'Continuer' }, {
-          text: 'Annuler', onPress: () => {
-            setLoading(false);
-            return;
-          }
-        }]
-      );
-    }
-
-    const selectedActivity = selectedActivityObjs[0];
-
-    // Vérifier si une session est requise (même pour perMonth → pour date limite interne)
-    let sessionId: number | undefined = undefined;
-    if (paymentPeriodType !== 'perSession') {
-      const sessionResponse = await axios.get(
-        `${API_BASE_URL}/api/sessions/next-session?activityId=${selectedActivity.id}`,
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-      const session = sessionResponse.data;
-      if (!session || !session.id) {
-        throw new Error("Aucune session future trouvée pour l'activité sélectionnée.");
-      }
-      sessionId = session.id;
-    }
-
-    const total = Math.round(calculateTotal() * 100);
+    const adherent = selectedAdherents[0];
     const paymentData: any = {
-      adherentId: selectedAdherent.id,
-      total,
-      firstName: parentInfo.firstName,
-      lastName: parentInfo.lastName,
-      email: parentInfo.email,
-      phoneNumber: parentInfo.phoneNumber,
-      paymentPeriodType,
+      adherentId: adherent.id,
     };
 
-    let paymentDescription = '';
-
     if (paymentPeriodType === 'perSession') {
-      if (!selectedSessionDetails || !selectedSessionDetails.id) {
-        throw new Error('Aucune session sélectionnée ou détails de session invalides');
+      if (
+        !selectedSessionDetails?.id ||
+        !selectedSessionDetails?.activiteId ||
+        !selectedSessionDetails?.activite
+      ) {
+        throw new Error("Détails de session ou activité manquants.");
       }
+
       paymentData.sessionId = selectedSessionDetails.id;
+      paymentData.activiteId = selectedSessionDetails.activiteId;
       paymentData.sessionDate = selectedDate;
-      paymentDescription = `Paiement de séance ${selectedActivity.nom} (${selectedDate}) pour ${selectedAdherent.prenom}`;
+      paymentData.description = `Paiement séance ${selectedSessionDetails.activite} (${selectedDate}) pour ${adherent.prenom}`;
     } else {
-      paymentData.moisPaiement = selectedMonths.join(',');
+      const selectedActivity = availableActivities.find(a => selectedActivities.includes(a.nom));
+      if (!selectedActivity) {
+        throw new Error("Aucune activité valide sélectionnée.");
+      }
+
+      paymentData.activiteId = selectedActivity.id;
       paymentData.months = selectedMonths;
-      paymentData.activiteId = selectedActivity.id; // ✅ Ajout essentiel
-      paymentDescription = `Paiement de ${selectedActivity.nom} (${selectedMonths.join(', ')}) pour ${selectedAdherent.prenom}`;
+      paymentData.moisPaiement = selectedMonths.join(',');
+      paymentData.description = `Paiement de ${selectedActivities.join(', ')} (${selectedMonths.join(', ')}) pour ${adherent.prenom}`;
     }
 
-    paymentData.description = paymentDescription;
+    const response = await axios.post(`${API_BASE_URL}/api/konnect/pay`, paymentData, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      timeout: 15000,
+    });
 
-    const paymentResponse = await axios.post(
-      `${API_BASE_URL}/api/konnect/pay`,
-      paymentData,
-      {
-        headers: {
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
-        timeout: 15000
-      }
-    );
-
-    const konnectUrl = paymentResponse?.data?.payment_url;
+    const konnectUrl = response?.data?.payment_url;
     if (typeof konnectUrl === 'string' && konnectUrl.startsWith('http')) {
       await Linking.openURL(konnectUrl);
     } else {
@@ -444,109 +412,103 @@ const handleKonnectPayment = useCallback(async () => {
     }
 
   } catch (error) {
-    handleApiError(error, 'Erreur lors de la préparation du paiement');
+    handleApiError(error, 'Erreur lors de la préparation du paiement en ligne');
   } finally {
     setLoading(false);
   }
 }, [
   isFormComplete,
   validateParentInfo,
-  selectedAdherent,
+  selectedAdherents,
   selectedActivities,
   availableActivities,
   selectedMonths,
   token,
-  parentInfo,
-  handleApiError,
-  calculateTotal,
-  paymentPeriodType,
   selectedDate,
-  selectedSessionDetails
+  selectedSessionDetails,
+  handleApiError
 ]);
 
 
-  const handleLocalPayment = useCallback(async () => {
-    if (!isFormComplete()) {
-      Alert.alert('Information incomplète', 'Veuillez compléter toutes les informations nécessaires.');
-      return;
+
+
+
+const handleLocalPayment = useCallback(async () => {
+  if (!isFormComplete()) {
+    Alert.alert('Information incomplète', 'Veuillez compléter toutes les informations nécessaires.');
+    return;
+  }
+
+  if (!validateParentInfo()) return;
+
+  setLoading(true);
+  setShowLocalForm(false);
+  setShowSuccessAlert(true);
+
+  try {
+    if (!Array.isArray(selectedAdherents) || selectedAdherents.length === 0) {
+      throw new Error("Aucun adhérent sélectionné.");
     }
 
-    if (!validateParentInfo()) {
-      return;
-    }
-    
-    setLoading(true);
-setShowLocalForm(false);
-setShowSuccessAlert(true);
+    const adherent = selectedAdherents[0];
+    let activityIds: number[] = [];
 
-    try {
-      if (!selectedAdherent || typeof selectedAdherent.id !== 'number') {
-        throw new Error("Adhérent sélectionné invalide");
+    const paymentData: any = {
+      payInCash: true,
+    };
+
+    if (paymentPeriodType === 'perSession') {
+      if (!selectedSessionDetails?.activite || !selectedSessionDetails?.activiteId || !selectedSessionDetails?.id) {
+        throw new Error("Activité ou séance invalide dans la session sélectionnée.");
       }
-      
-      const selectedActivityIds = availableActivities
+
+      activityIds = [selectedSessionDetails.activiteId];
+      paymentData.sessionId = selectedSessionDetails.id;
+      paymentData.sessionDate = selectedDate;
+    } else {
+      activityIds = availableActivities
         .filter(a => selectedActivities.includes(a.nom))
-        .map(a => {
-          if (!a || !a.id) {
-            throw new Error(`L'activité "${a?.nom || 'inconnue'}" est invalide`);
-          }
-          return a.id;
-        });
-        
-      if (selectedActivityIds.length === 0) {
-        throw new Error('Aucune activité valide sélectionnée');
-      }
-      
-      if (!token) {
-        throw new Error('Session expirée');
-      }
-      
-      let paymentData: any = {
-        activiteIds: selectedActivityIds,
-        payInCash: true,
-      };
+        .map(a => a.id);
 
-      if (paymentPeriodType === 'perSession') {
-        paymentData.sessionDate = selectedDate;
-      } else {
-        paymentData.months = selectedMonths;
-        paymentData.moisPaiement = selectedMonths.join(',');
+      if (activityIds.length === 0) {
+        throw new Error("Aucune activité valide sélectionnée.");
       }
 
-      const response = await axios.post(
-        `${API_BASE_URL}/api/reservations/by-parent/${selectedAdherent.id}`,
-        paymentData,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            'Content-Type': 'application/json'
-          },
-          timeout: 10000
-        }
-      );
-
-      Alert.alert(
-        '✅ Paiement local confirmé', 
-        'Votre réservation a été enregistrée avec succès.',
-        [{ text: 'OK', onPress: () => setShowLocalForm(false) }]
-      );
-    } catch (error) {
-      handleApiError(error, 'Erreur lors de la confirmation du paiement local');
-    } finally {
-      setLoading(false);
+      paymentData.months = selectedMonths;
+      paymentData.moisPaiement = selectedMonths.join(',');
     }
-  }, [
-    isFormComplete, 
-    validateParentInfo, 
-    selectedAdherent, 
-    availableActivities, 
-    selectedActivities, 
-    selectedMonths,
-    selectedDate,
-    paymentPeriodType,
-    token, 
-    handleApiError
-  ]);
+
+    paymentData.activiteIds = activityIds;
+
+    await axios.post(`${API_BASE_URL}/api/reservations/by-parent/${adherent.id}`, paymentData, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      timeout: 10000,
+    });
+
+    Alert.alert('✅ Paiement local confirmé', 'Votre réservation a été enregistrée avec succès.');
+  } catch (error) {
+    handleApiError(error, 'Erreur lors de la confirmation du paiement local');
+  } finally {
+    setLoading(false);
+  }
+}, [
+  isFormComplete,
+  validateParentInfo,
+  selectedAdherents,
+  selectedActivities,
+  availableActivities,
+  selectedMonths,
+  selectedDate,
+  paymentPeriodType,
+  token,
+  selectedSessionDetails,
+  handleApiError
+]);
+
+
   
   const formatSelectedDate = (dateString: string) => {
     if (!dateString) return '';
@@ -599,7 +561,6 @@ setShowSuccessAlert(true);
             {[
               { label: 'Par séance', value: 'perSession' },
               { label: 'Par mois', value: 'perMonth' },
-              { label: '3 mois', value: 'per3Months' }
             ].map(option => (
               <TouchableOpacity
                 key={option.value}
@@ -629,8 +590,12 @@ setShowSuccessAlert(true);
             <Text style={styles.sectionTitle}>Date de la séance</Text>
             <Calendar
               onDayPress={(day) => {
+                const sessionList = sessionsMap[day.dateString];
+                const session = Array.isArray(sessionList) ? sessionList[0] : sessionList;
+
+                console.log('📅 Session sélectionnée :', session); // ✅ log utile
+
                 setSelectedDate(day.dateString);
-                const session = sessionsMap[day.dateString];
                 setSelectedSessionDetails(session || null);
               }}
               markedDates={{
@@ -659,13 +624,30 @@ setShowSuccessAlert(true);
 
             {selectedSessionDetails && (
               <View style={{ marginTop: 12, padding: 12, backgroundColor: '#f0f0ff', borderRadius: 8 }}>
-                <Text style={{ fontWeight: 'bold' }}>Détails de la séance :</Text>
-                <Text>🕒 Heure : {new Date(selectedSessionDetails.dateTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</Text>
-                <Text>🏟️ Terrain : {selectedSessionDetails.lieu?.nom || 'N/A'}</Text>
-                <Text>🎯 Activité : {selectedSessionDetails.activite?.nom || '-'}</Text>
+                <Text style={{ fontWeight: 'bold', marginBottom: 6 }}>📋 Détails de la séance :</Text>
+
+                <Text>🕒 Heure : {selectedSessionDetails.time || '-'}</Text>
+                <Text>
+                  ⏳ Durée : {selectedSessionDetails.start && selectedSessionDetails.end ? 
+                    (() => {
+                      const start = new Date(selectedSessionDetails.start);
+                      const end = new Date(selectedSessionDetails.end);
+                      const durationMs = end.getTime() - start.getTime();
+                      const totalMinutes = Math.floor(durationMs / 60000);
+                      const hours = Math.floor(totalMinutes / 60);
+                      const minutes = totalMinutes % 60;
+                      return `${hours}h ${minutes}min`;
+                    })()
+                    : '-'}
+                </Text>
+                <Text>🏟️ Terrain : {selectedSessionDetails.lieu || 'N/A'}</Text>
+                <Text>🎯 Activité : {selectedSessionDetails.activite || '-'}</Text>
+                <Text>🧑‍🏫 Coach : {selectedSessionDetails.coachName || '-'}</Text>
+                <Text>👥 Équipe : {selectedSessionDetails.equipe || '-'}</Text>
                 <Text>💰 Prix : {selectedSessionDetails.prix != null ? `${selectedSessionDetails.prix} €` : '-'}</Text>
               </View>
             )}
+
           </View>
         ) : (
           <View style={styles.contentCard}>
@@ -752,24 +734,29 @@ setShowSuccessAlert(true);
               <View style={styles.optionsGrid}>
                 {adherents.map(a => (
                   <TouchableOpacity
-                    key={a.id || `adherent-${a.nom}-${a.prenom}`}
+                    key={a.id}
                     style={[
                       styles.option,
-                      selectedAdherent?.id === a.id && styles.selected
+                      selectedAdherents.some(ad => ad.id === a.id) && styles.selected
                     ]}
-                    onPress={() => handleAdherentSelect(a)}
-                    disabled={loading}
+                    onPress={() => {
+                      if (paymentPeriodType === 'perSession') {
+                        setSelectedAdherents([a]); // only one allowed
+                        handleAdherentSelect([a]); // get activities for one adherent
+                      } else {
+                        setSelectedAdherents(prev =>
+                          prev.some(ad => ad.id === a.id)
+                            ? prev.filter(ad => ad.id !== a.id)
+                            : [...prev, a]
+                        );
+                      }
+                    }}
                   >
-                    <Text style={[
-                      styles.optionText,
-                      selectedAdherent?.id === a.id && styles.selectedText
-                    ]}>
+                    <Text style={styles.optionText}>
                       {a.prenom} {a.nom}
                     </Text>
-                    {selectedAdherent?.id === a.id && (
-                      <Ionicons name="checkmark-circle" size={20} color="#6B46C1" style={styles.checkIcon} />
-                    )}
                   </TouchableOpacity>
+
                 ))}
               </View>
             ) : !loading && (
@@ -778,7 +765,7 @@ setShowSuccessAlert(true);
           </View>
         </View>
 
-        {/* Activités */}
+        {paymentPeriodType !== 'perSession' && (
         <View style={styles.contentCard}>
           <View style={styles.section}>
             <View style={styles.sectionHeader}>
@@ -812,39 +799,49 @@ setShowSuccessAlert(true);
                   </TouchableOpacity>
                 ))}
               </View>
-            ) : selectedAdherent && !loading && (
+            ) : selectedAdherents && !loading && (
               <Text style={styles.emptyText}>Aucune activité disponible pour cet adhérent</Text>
             )}
           </View>
         </View>
+        )}
 
         {/* Récapitulatif */}
         <View style={styles.summaryCard}>
           <Text style={styles.summaryTitle}>Récapitulatif</Text>
           
           <View style={styles.summaryRow}>
-            <Text style={styles.summaryLabel}>Adhérent</Text>
+            <Text style={styles.summaryLabel}>Adhérents</Text>
             <Text style={styles.summaryValue}>
-              {selectedAdherent ? `${selectedAdherent.prenom} ${selectedAdherent.nom}` : '-'}
+              {selectedAdherents.map(a => `${a.prenom} ${a.nom}`).join(', ') || '-'}
             </Text>
           </View>
           
           <View style={styles.summaryRow}>
-            <Text style={styles.summaryLabel}>Activités</Text>
+            <Text style={styles.summaryLabel}>Séance</Text>
             <Text style={styles.summaryValue}>
-              {selectedActivities.length > 0 ? selectedActivities.join(', ') : '-'}
+              {selectedSessionDetails?.start ? formatSelectedDate(selectedSessionDetails.start) : '-'}
             </Text>
           </View>
-          
-          <View style={styles.summaryRow}>
-            <Text style={styles.summaryLabel}>Période</Text>
-            <Text style={styles.summaryValue}>
-              {paymentPeriodType === 'perSession' 
-                ? (selectedDate ? formatSelectedDate(selectedDate) : '-')
-                : (selectedMonths.length > 0 ? selectedMonths.join(', ') : '-')}
-            </Text>
-          </View>
-          
+          {(paymentPeriodType === 'perMonth') && (
+            <>
+              <View style={styles.summaryRow}>
+                <Text style={styles.summaryLabel}>Activités</Text>
+                <Text style={styles.summaryValue}>
+                  {selectedActivities.length > 0 ? selectedActivities.join(', ') : '-'}
+                </Text>
+              </View>
+
+              <View style={styles.summaryRow}>
+                <Text style={styles.summaryLabel}>Période</Text>
+                <Text style={styles.summaryValue}>
+                  {selectedMonths.length > 0 ? selectedMonths.join(', ') : '-'}
+                </Text>
+              </View>
+            </>
+          )}
+
+
           <View style={styles.divider} />
           
           <View style={styles.totalRow}>
@@ -864,7 +861,7 @@ setShowSuccessAlert(true);
             disabled={!isFormComplete() || loading}
           >
             <Ionicons name="cash-outline" size={20} color="white" />
-            <Text style={styles.buttonText}>Payer en local</Text>
+            <Text style={styles.buttonText}>Payer en local(cash)</Text>
           </TouchableOpacity>
 
           <View style={{ height: 12 }} />
@@ -923,7 +920,8 @@ setShowSuccessAlert(true);
       </ScrollView>
     </SafeAreaView>
   );
-}const styles = StyleSheet.create({
+}
+const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
     backgroundColor: '#f8fafc',
@@ -1055,7 +1053,6 @@ setShowSuccessAlert(true);
     shadowOpacity: 0.05,
     shadowRadius: 4,
     elevation: 2,
-    transition: '0.3s',
   },
   selected: {
     backgroundColor: 'rgba(235, 244, 255, 0.95)',

@@ -3,9 +3,8 @@ import api from './api';
 export interface ActivityDTO {
   id: number;
   nom: string;
-  description: string;
+  description?: string;
   prix: number;
-  lieu: string;
   imageBase64?: string;
 }
 
