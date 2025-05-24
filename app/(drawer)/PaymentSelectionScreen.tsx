@@ -351,18 +351,26 @@ useEffect(() => {
     return true;
   }, [parentInfo]);
 
+
+
 const handleKonnectPayment = useCallback(async () => {
+  console.log('🚀 Début du paiement avec Konnect');
   if (!isFormComplete()) {
+    console.warn('⚠️ Formulaire incomplet');
     Alert.alert('Information incomplète', 'Veuillez compléter toutes les informations nécessaires.');
     return;
   }
 
-  if (!validateParentInfo()) return;
+  if (!validateParentInfo()) {
+    console.warn('⚠️ Informations parent invalides');
+    return;
+  }
 
   setLoading(true);
 
   try {
     if (!Array.isArray(selectedAdherents) || selectedAdherents.length === 0) {
+      console.error('❌ Aucun adhérent sélectionné');
       throw new Error('Aucun adhérent sélectionné.');
     }
 
@@ -371,12 +379,15 @@ const handleKonnectPayment = useCallback(async () => {
       adherentId: adherent.id,
     };
 
+    console.log('👤 Adhérent sélectionné:', adherent);
+
     if (paymentPeriodType === 'perSession') {
       if (
         !selectedSessionDetails?.id ||
         !selectedSessionDetails?.activiteId ||
         !selectedSessionDetails?.activite
       ) {
+        console.error("❌ Détails session/activité manquants:", selectedSessionDetails);
         throw new Error("Détails de session ou activité manquants.");
       }
 
@@ -384,9 +395,11 @@ const handleKonnectPayment = useCallback(async () => {
       paymentData.activiteId = selectedSessionDetails.activiteId;
       paymentData.sessionDate = selectedDate;
       paymentData.description = `Paiement séance ${selectedSessionDetails.activite} (${selectedDate}) pour ${adherent.prenom}`;
+      console.log("📅 Paiement par séance configuré:", paymentData);
     } else {
       const selectedActivity = availableActivities.find(a => selectedActivities.includes(a.nom));
       if (!selectedActivity) {
+        console.error("❌ Activité sélectionnée introuvable:", selectedActivities);
         throw new Error("Aucune activité valide sélectionnée.");
       }
 
@@ -394,7 +407,26 @@ const handleKonnectPayment = useCallback(async () => {
       paymentData.months = selectedMonths;
       paymentData.moisPaiement = selectedMonths.join(',');
       paymentData.description = `Paiement de ${selectedActivities.join(', ')} (${selectedMonths.join(', ')}) pour ${adherent.prenom}`;
+      console.log("📆 Paiement mensuel configuré:", paymentData);
     }
+
+    // ✅ Infos parent
+    paymentData.firstName = parentInfo.firstName.trim();
+    paymentData.lastName = parentInfo.lastName.trim();
+    paymentData.email = parentInfo.email.trim();
+
+    let rawPhone = parentInfo.phoneNumber.replace(/\D/g, '');
+    if (rawPhone.startsWith('216')) rawPhone = rawPhone.slice(3);
+    paymentData.phoneNumber = `216${rawPhone}`;
+
+    console.log("📨 Infos parent formatées:", {
+      firstName: paymentData.firstName,
+      lastName: paymentData.lastName,
+      email: paymentData.email,
+      phoneNumber: paymentData.phoneNumber,
+    });
+
+    console.log("🔄 Données finales envoyées à Konnect:", paymentData);
 
     const response = await axios.post(`${API_BASE_URL}/api/konnect/pay`, paymentData, {
       headers: {
@@ -404,17 +436,26 @@ const handleKonnectPayment = useCallback(async () => {
       timeout: 15000,
     });
 
+    console.log("✅ Réponse reçue de Konnect:", response?.data);
+
     const konnectUrl = response?.data?.payment_url;
     if (typeof konnectUrl === 'string' && konnectUrl.startsWith('http')) {
+      console.log('🔗 Redirection vers:', konnectUrl);
       await Linking.openURL(konnectUrl);
     } else {
+      console.error('❌ Lien de paiement invalide:', konnectUrl);
       throw new Error('Lien de paiement invalide');
     }
 
-  } catch (error) {
+  } catch (error: any) {
+    console.error('🔥 Erreur attrapée:', error);
+    if (error?.response) {
+      console.error('📦 Contenu réponse erreur:', error.response.data);
+    }
     handleApiError(error, 'Erreur lors de la préparation du paiement en ligne');
   } finally {
     setLoading(false);
+    console.log('🏁 Fin du traitement du paiement');
   }
 }, [
   isFormComplete,
@@ -426,10 +467,9 @@ const handleKonnectPayment = useCallback(async () => {
   token,
   selectedDate,
   selectedSessionDetails,
+  parentInfo,
   handleApiError
 ]);
-
-
 
 
 

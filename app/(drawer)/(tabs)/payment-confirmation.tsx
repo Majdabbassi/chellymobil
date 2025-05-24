@@ -22,11 +22,10 @@ export default function PaymentConfirmationScreen() {
   const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
-    if (params?.status === 'success' || params?.status === 'failed') {
-      setStatus(params.status as 'success' | 'failed');
-      
-      // Reconstituer les données de paiement à partir des paramètres
-      const data = {
+  if (params?.status === 'success' || params?.status === 'failed') {
+    setStatus(params.status as 'success' | 'failed');
+
+    const data = {
         parentId: params.parentId,
         adherentId: params.adherentId,
         sessionId: params.sessionId,
@@ -45,12 +44,21 @@ export default function PaymentConfirmationScreen() {
         description: params.description,
         sessionDate: params.sessionDate,
       };
-      
-      setPaymentData(data);
-    } else {
-      setStatus('unknown');
+    setPaymentData(data);
+
+    if (params.status === 'success') {
+      // ⏳ Wait 3 seconds then redirect automatically
+      const timer = setTimeout(() => {
+        router.replace('/(drawer)/ParentDashboardScreen');
+      }, 3000);
+
+      return () => clearTimeout(timer); // Cleanup
     }
-  }, [params]);
+  } else {
+    setStatus('unknown');
+  }
+}, [params]);
+
 
   const generateReceipt = async () => {
     try {
