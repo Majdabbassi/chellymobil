@@ -14,17 +14,15 @@ import {
   ActivityIndicator
 } from 'react-native';
 import API from '@/services/api';
-import API_BASE_URL from '@/services/api';
-
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import axios from 'axios';
 import { AdherentDTO } from '../../types/AdherentDTO';
 import { getPerformanceByAdherent } from '@/services/performanceService';
 import { useNavigation } from '@react-navigation/native';
 import { router } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker'; // ← important !
 import * as DocumentPicker from 'expo-document-picker';
+import { getAdherentsOfCurrentParent } from '@/services/adherent';
 
 const pickImage = async (): Promise<string | null> => {
   
@@ -75,13 +73,15 @@ export default function ParametresScreen() {
   const [error, setError] = useState(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const navigation = useNavigation<any>();
+  const [imageUri, setImageUri] = useState<string | null>(null);
 
   // États pour les données utilisateur
   const [userData, setUserData] = useState({
     nom: '',
     prenom: '',
     email: '',
-    telephone: ''
+    telephone: '',
+    imageBase64: '',
   });
   
   // Variables d'état pour le mot de passe
@@ -192,8 +192,11 @@ const getUserIdFromStorage = async (): Promise<number | null> => {
         prenom: user.prenom || '',
         email: user.email || '',
         telephone: user.telephone || '',
+        imageBase64: user.imageBase64 || '',
       });
-  
+      setImageUri(formatImageUri(user.imageBase64));
+
+
       console.log("[loadUserData] Données utilisateur enregistrées dans l'état :", {
         nom: user.nom,
         prenom: user.prenom,
@@ -215,19 +218,17 @@ const getUserIdFromStorage = async (): Promise<number | null> => {
   // Fonction pour charger les adhérents (enfants)
   const loadAdherents = async () => {
     try {
-      const { data: payload } = await API.get('/adherents');
-  
-      const adherentsRaw = extractAdherents(payload);
-  
+      const adherentsRaw = await getAdherentsOfCurrentParent();
+
       const adherentsWithImages = adherentsRaw.map(a => ({
         ...a,
-        imageUri: formatImageUri(a.imageBase64 ?? a.photo ?? a.imageData)
+        imageUri: formatImageUri(a.imageBase64 ?? a.photo ?? a.imageData),
       }));
-  
+
       setEnfants(adherentsWithImages);
       return adherentsWithImages;
     } catch (err: any) {
-      console.error(err);
+      console.error('❌ Erreur chargement adhérents du parent :', err);
       setError(err.response?.data?.message ?? 'Erreur de chargement des adhérents');
       return [];
     }
@@ -266,13 +267,14 @@ const getUserIdFromStorage = async (): Promise<number | null> => {
       await API.put('/utilisateurs/me', {
         nom: userData.nom,
         prenom: userData.prenom,
-        telephone: userData.telephone
-        // 🔥 ne jamais envoyer email ici 🔥
+        telephone: userData.telephone,
+        imageBase64: userData.imageBase64,
+        email: userData.email,
       });
-  
+      await loadUserData();     
+      setActiveModal(null);          
       Alert.alert("Succès", "Informations personnelles mises à jour ✅");
-      closeModal();
-      await loadUserData();
+    
     } catch (error: any) {
       console.error("Erreur:", error);
       Alert.alert("Erreur", error.response?.data?.message || "Erreur de mise à jour des informations");
@@ -282,60 +284,46 @@ const getUserIdFromStorage = async (): Promise<number | null> => {
   };
   
   
-  const updatePassword = async () => {
-    if (newPassword !== confirmPassword) {
-      Alert.alert("Erreur", "Les mots de passe ne correspondent pas");
-      return;
-    }
-  
-    if (newPassword.length < 6) {
-      Alert.alert("Erreur", "Le mot de passe doit contenir au moins 6 caractères");
-      return;
-    }
-  
-    try {
-      setIsLoading(true);
-      await API.put('/utilisateurs/password', {
-        currentPassword,
-        newPassword
-      });
-  
-      Alert.alert("Succès", "Mot de passe modifié avec succès ✅");
-      setCurrentPassword('');
-      setNewPassword('');
-      setConfirmPassword('');
-      closeModal();
-    } catch (error) {
-      console.error("Erreur:", error);
-      Alert.alert("Erreur", error.response?.data?.message || "Erreur lors du changement de mot de passe");
-    } finally {
-      setIsLoading(false);
-    }
-  };
-  
-  const updateNotificationSettings = async () => {
-    try {
-      setIsLoading(true);
-      await API.put('/users/preferences', {
-        preferences: {
-          push: notificationSettings.pushEnabled,
-          email: notificationSettings.emailEnabled,
-          sms: notificationSettings.smsEnabled
-        }
-      });
-      
-      Alert.alert("Succès", "Préférences de notifications mises à jour");
-      closeModal();
-      
-      // Recharger les données pour s'assurer que tout est à jour
-      await loadUserData();
-    } catch (error) {
-      console.error("Erreur:", error);
-      Alert.alert("Erreur", error.response?.data?.message || "Erreur de mise à jour des préférences");
-    } finally {
-      setIsLoading(false);
-    }
-  };
+const updatePassword = async () => {
+  console.log("🛠 Tentative de mise à jour du mot de passe...");
+
+  if (!currentPassword || !newPassword || !confirmPassword) {
+    console.log("❌ Champs manquants");
+    Alert.alert("Erreur", "Veuillez remplir tous les champs.");
+    return;
+  }
+
+  if (newPassword !== confirmPassword) {
+    console.log("❌ Mots de passe différents");
+    Alert.alert("Erreur", "Les mots de passe ne correspondent pas.");
+    return;
+  }
+
+  try {
+    setIsLoading(true);
+    console.log("📤 Envoi requête PUT");
+
+    await API.put('/utilisateurs/password', {
+      currentPassword,
+      newPassword,
+    });
+
+    console.log("✅ Mot de passe modifié avec succès");
+
+    Alert.alert("Succès", "Mot de passe mis à jour ✅");
+    setCurrentPassword('');
+    setNewPassword('');
+    setConfirmPassword('');
+    setActiveModal(null);
+  } catch (error: any) {
+    console.error("❌ Erreur backend:", error);
+    Alert.alert("Erreur", error.response?.data?.message || "Impossible de changer le mot de passe.");
+  } finally {
+    setIsLoading(false);
+  }
+};
+
+
   const getBlobFromUri = async (uri: string): Promise<Blob> => {
     const response = await fetch(uri);
     const blob = await response.blob();
@@ -533,52 +521,74 @@ const handleUploadDocument = async () => {
   const renderModal = () => {
     switch(activeModal) {
       case 'personal':
+        const handlePickImage = async () => {
+          const base64Image = await pickImage();
+          if (base64Image) {
+            setImageUri(base64Image);
+            setUserData({ ...userData, imageBase64: base64Image });
+          }
+        };
+
         return (
           <View style={styles.modalContent}>
             <Text style={styles.modalTitle}>Informations personnelles</Text>
-            
+
+            {/* PHOTO DE PROFIL */}
+            <Text style={styles.inputLabel}>Photo de profil</Text>
+
+            <TouchableOpacity onPress={handlePickImage} style={styles.photoContainer}>
+              {imageUri ? (
+                <Image source={{ uri: imageUri }} style={styles.profileImage} />
+              ) : (
+                <View style={styles.placeholderImage}>
+                  <Ionicons name="camera" size={28} color="#888" />
+                  <Text style={styles.addPhotoText}>Ajouter une photo</Text>
+                </View>
+              )}
+            </TouchableOpacity>
+
             <View style={styles.inputGroup}>
               <Text style={styles.inputLabel}>Nom</Text>
               <TextInput
                 style={styles.input}
                 value={userData.nom}
-                onChangeText={(text) => setUserData({...userData, nom: text})}
+                onChangeText={(text) => setUserData({ ...userData, nom: text })}
                 placeholder="Votre nom"
               />
             </View>
-            
+
             <View style={styles.inputGroup}>
               <Text style={styles.inputLabel}>Prénom</Text>
               <TextInput
                 style={styles.input}
                 value={userData.prenom}
-                onChangeText={(text) => setUserData({...userData, prenom: text})}
+                onChangeText={(text) => setUserData({ ...userData, prenom: text })}
                 placeholder="Votre prénom"
               />
             </View>
-            
+
             <View style={styles.inputGroup}>
               <Text style={styles.inputLabel}>Email</Text>
               <TextInput
                 style={styles.input}
                 value={userData.email}
-                onChangeText={(text) => setUserData({...userData, email: text})}
+                onChangeText={(text) => setUserData({ ...userData, email: text })}
                 placeholder="Votre email"
                 keyboardType="email-address"
               />
             </View>
-            
+
             <View style={styles.inputGroup}>
               <Text style={styles.inputLabel}>Téléphone</Text>
               <TextInput
                 style={styles.input}
                 value={userData.telephone}
-                onChangeText={(text) => setUserData({...userData, telephone: text})}
+                onChangeText={(text) => setUserData({ ...userData, telephone: text })}
                 placeholder="Votre téléphone"
                 keyboardType="phone-pad"
               />
             </View>
-            
+
             <TouchableOpacity style={styles.button} onPress={updatePersonalInfo} disabled={isLoading}>
               {isLoading ? (
                 <ActivityIndicator color="#FFFFFF" size="small" />
@@ -588,6 +598,8 @@ const handleUploadDocument = async () => {
             </TouchableOpacity>
           </View>
         );
+
+
       case 'password':
         return (
           <View style={styles.modalContent}>
@@ -635,208 +647,152 @@ const handleUploadDocument = async () => {
             </TouchableOpacity>
           </View>
         );
-      case 'notifications':
+
+      case 'addChild':
         return (
           <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Notifications</Text>
-            
-            <View style={styles.switchGroup}>
-              <Text style={styles.switchLabel}>Notifications push</Text>
-              <Switch
-                trackColor={{ false: "#D1D5DB", true: "#8A6BFF" }}
-                thumbColor={notificationSettings.pushEnabled ? "#FFFFFF" : "#F3F4F6"}
-                ios_backgroundColor="#D1D5DB"
-                onValueChange={() => setNotificationSettings({
-                  ...notificationSettings, 
-                  pushEnabled: !notificationSettings.pushEnabled
-                })}
-                value={notificationSettings.pushEnabled}
+            <Text style={styles.modalTitle}>Ajouter un enfant</Text>
+
+            <View style={styles.inputGroup}>
+              <Text style={styles.inputLabel}>Prénom</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="Prénom de l'enfant"
+                value={newChild.prenom}
+                onChangeText={(text) => setNewChild({ ...newChild, prenom: text })}
               />
             </View>
-            
-            <View style={styles.switchGroup}>
-              <Text style={styles.switchLabel}>Notifications par email</Text>
-              <Switch
-                trackColor={{ false: "#D1D5DB", true: "#8A6BFF" }}
-                thumbColor={notificationSettings.emailEnabled ? "#FFFFFF" : "#F3F4F6"}
-                ios_backgroundColor="#D1D5DB"
-                onValueChange={() => setNotificationSettings({
-                  ...notificationSettings, 
-                  emailEnabled: !notificationSettings.emailEnabled
-                })}
-                value={notificationSettings.emailEnabled}
+
+            <View style={styles.inputGroup}>
+              <Text style={styles.inputLabel}>Nom</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="Nom de l'enfant"
+                value={newChild.nom}
+                onChangeText={(text) => setNewChild({ ...newChild, nom: text })}
               />
             </View>
-            
-            <View style={styles.switchGroup}>
-              <Text style={styles.switchLabel}>Notifications par SMS</Text>
-              <Switch
-                trackColor={{ false: "#D1D5DB", true: "#8A6BFF" }}
-                thumbColor={notificationSettings.smsEnabled ? "#FFFFFF" : "#F3F4F6"}
-                ios_backgroundColor="#D1D5DB"
-                onValueChange={() => setNotificationSettings({
-                  ...notificationSettings, 
-                  smsEnabled: !notificationSettings.smsEnabled
-                })}
-                value={notificationSettings.smsEnabled}
+
+            <View style={styles.inputGroup}>
+              <Text style={styles.inputLabel}>Date de naissance</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="yyyy-mm-dd"
+                value={newChild.dateNaissance}
+                onChangeText={(text) => setNewChild({ ...newChild, dateNaissance: text })}
               />
             </View>
-            
-            <TouchableOpacity style={styles.button} onPress={updateNotificationSettings} disabled={isLoading}>
+            <View style={styles.inputGroup}>
+        <Text style={styles.inputLabel}>Sexe</Text>
+        <View style={styles.selectInput}>
+          <TouchableOpacity
+            style={[
+              styles.selectOption,
+              newChild.sexe === 'Homme' && styles.selectedOption,
+            ]}
+            onPress={() => setNewChild({ ...newChild, sexe: 'Homme' })}
+          >
+            <Text style={styles.selectOptionText}>Homme</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[
+              styles.selectOption,
+              newChild.sexe === 'Femme' && styles.selectedOption,
+            ]}
+            onPress={() => setNewChild({ ...newChild, sexe: 'Femme' })}
+          >
+            <Text style={styles.selectOptionText}>Femme</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+
+            <TouchableOpacity
+        style={styles.imagePickerButton}
+        onPress={async () => {
+          const image = await pickImage();
+          if (image) {
+            setNewChild(prev => ({
+              ...prev,
+              imageBase64: image,
+            }));
+          }
+        }}
+      >
+        <Text style={styles.imagePickerButtonText}>Choisir une image</Text>
+      </TouchableOpacity>
+
+
+      {newChild.imageBase64 ? (
+        <Image
+          source={{ uri: newChild.imageBase64 }}
+          style={styles.previewImage}
+        />
+      ) : null}
+            <TouchableOpacity 
+              style={styles.button} 
+              onPress={handleAddChild}
+              disabled={isLoading}
+            >
               {isLoading ? (
                 <ActivityIndicator color="#FFFFFF" size="small" />
               ) : (
-                <Text style={styles.buttonText}>Enregistrer</Text>
+                <Text style={styles.buttonText}>Ajouter</Text>
               )}
             </TouchableOpacity>
           </View>
         );
-        case 'addChild':
-  return (
-    <View style={styles.modalContent}>
-      <Text style={styles.modalTitle}>Ajouter un enfant</Text>
 
-      <View style={styles.inputGroup}>
-        <Text style={styles.inputLabel}>Prénom</Text>
-        <TextInput
-          style={styles.input}
-          placeholder="Prénom de l'enfant"
-          value={newChild.prenom}
-          onChangeText={(text) => setNewChild({ ...newChild, prenom: text })}
-        />
-      </View>
 
-      <View style={styles.inputGroup}>
-        <Text style={styles.inputLabel}>Nom</Text>
-        <TextInput
-          style={styles.input}
-          placeholder="Nom de l'enfant"
-          value={newChild.nom}
-          onChangeText={(text) => setNewChild({ ...newChild, nom: text })}
-        />
-      </View>
+      case 'children': {
+        const enfantsWithUri = enfants.map(enf => ({
+          ...enf,
+          uri: formatImageUri(enf.imageBase64), 
+        }));
+        return (
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Gérer mes enfants</Text>
 
-      <View style={styles.inputGroup}>
-        <Text style={styles.inputLabel}>Date de naissance</Text>
-        <TextInput
-          style={styles.input}
-          placeholder="yyyy-mm-dd"
-          value={newChild.dateNaissance}
-          onChangeText={(text) => setNewChild({ ...newChild, dateNaissance: text })}
-        />
-      </View>
-      <View style={styles.inputGroup}>
-  <Text style={styles.inputLabel}>Sexe</Text>
-  <View style={styles.selectInput}>
-    <TouchableOpacity
-      style={[
-        styles.selectOption,
-        newChild.sexe === 'Homme' && styles.selectedOption,
-      ]}
-      onPress={() => setNewChild({ ...newChild, sexe: 'Homme' })}
-    >
-      <Text style={styles.selectOptionText}>Homme</Text>
-    </TouchableOpacity>
-    <TouchableOpacity
-      style={[
-        styles.selectOption,
-        newChild.sexe === 'Femme' && styles.selectedOption,
-      ]}
-      onPress={() => setNewChild({ ...newChild, sexe: 'Femme' })}
-    >
-      <Text style={styles.selectOptionText}>Femme</Text>
-    </TouchableOpacity>
-  </View>
-</View>
+            {isLoading ? (
+              <ActivityIndicator color="#8A6BFF" size="large" style={{ marginVertical: 20 }} />
+            ) : enfantsWithUri.length > 0 ? (
+              enfantsWithUri.map(enfant => (
+                <TouchableOpacity
+                  key={enfant.id}
+                  style={styles.listItem}
+                  onPress={() => showEnfantDetails(enfant)}
+                >
+                  <View style={styles.childInfo}>
+                    <View style={styles.childIconContainer}>
+                      {enfant.uri ? (
+                        <RNImage source={{ uri: enfant.uri }} style={styles.childImage} />
+                      ) : (
+                        <Ionicons name="person" size={20} color="#FFFFFF" />
+                      )}
+                    </View>
+                    <Text style={styles.childName}>{enfant.prenom} {enfant.nom}</Text>
+                  </View>
+                  <Text style={styles.childAge}>{enfant.age} ans</Text>
+                  <Ionicons name="chevron-forward" size={18} color="#8A6BFF" />
+                </TouchableOpacity>
+              ))
+            ) : (
+              <Text style={styles.emptyStateText}>Aucun adhérent trouvé</Text>
+            )}
 
       <TouchableOpacity
-  style={styles.imagePickerButton}
-  onPress={async () => {
-    const image = await pickImage();
-    if (image) {
-      setNewChild(prev => ({
-        ...prev,
-        imageBase64: image,
-      }));
-    }
-  }}
->
-  <Text style={styles.imagePickerButtonText}>Choisir une image</Text>
-</TouchableOpacity>
-
-
-{newChild.imageBase64 ? (
-  <Image
-    source={{ uri: newChild.imageBase64 }}
-    style={styles.previewImage}
-  />
-) : null}
-      <TouchableOpacity 
-        style={styles.button} 
-        onPress={handleAddChild}
-        disabled={isLoading}
+        style={[styles.button, styles.addButton]}
+        onPress={() => {
+          setNewChild({ prenom: '', nom: '', dateNaissance: '' }); // reset form
+          setActiveModal('addChild'); // ← ouvrir modal d'ajout
+        }}
       >
-        {isLoading ? (
-          <ActivityIndicator color="#FFFFFF" size="small" />
-        ) : (
-          <Text style={styles.buttonText}>Ajouter</Text>
-        )}
+        <Ionicons name="add" size={18} color="#FFFFFF" style={styles.addIcon} />
+        <Text style={styles.buttonText}>Ajouter un enfant</Text>
       </TouchableOpacity>
-    </View>
-  );
 
-        // juste avant de render ta liste, transforme chaque enfant :
-        case 'children': {
-          // on est sûr que `enfants` est AdherentDTO[]
-          const enfantsWithUri = enfants.map(enf => ({
-            ...enf,
-            uri: formatImageUri(enf.imageBase64), 
-          }));
-  return (
-    <View style={styles.modalContent}>
-      <Text style={styles.modalTitle}>Gérer mes enfants</Text>
-
-      {isLoading ? (
-        <ActivityIndicator color="#8A6BFF" size="large" style={{ marginVertical: 20 }} />
-      ) : enfantsWithUri.length > 0 ? (
-        enfantsWithUri.map(enfant => (
-          <TouchableOpacity
-            key={enfant.id}
-            style={styles.listItem}
-            onPress={() => showEnfantDetails(enfant)}
-          >
-            <View style={styles.childInfo}>
-              <View style={styles.childIconContainer}>
-                {enfant.uri ? (
-                  <RNImage source={{ uri: enfant.uri }} style={styles.childImage} />
-                ) : (
-                  <Ionicons name="person" size={20} color="#FFFFFF" />
-                )}
-              </View>
-              <Text style={styles.childName}>{enfant.prenom} {enfant.nom}</Text>
-            </View>
-            <Text style={styles.childAge}>{enfant.age} ans</Text>
-            <Ionicons name="chevron-forward" size={18} color="#8A6BFF" />
-          </TouchableOpacity>
-        ))
-      ) : (
-        <Text style={styles.emptyStateText}>Aucun adhérent trouvé</Text>
-      )}
-
-<TouchableOpacity
-  style={[styles.button, styles.addButton]}
-  onPress={() => {
-    setNewChild({ prenom: '', nom: '', dateNaissance: '' }); // reset form
-    setActiveModal('addChild'); // ← ouvrir modal d'ajout
-  }}
->
-  <Ionicons name="add" size={18} color="#FFFFFF" style={styles.addIcon} />
-  <Text style={styles.buttonText}>Ajouter un enfant</Text>
-</TouchableOpacity>
-
-    </View>
-  );
-}
+          </View>
+        );
+      }
 
         
       case 'childDetail':
@@ -892,31 +848,6 @@ const handleUploadDocument = async () => {
                 <Text style={styles.detailValue}>
                   {selectedEnfant?.dateInscriptionClub ? new Date(selectedEnfant.dateInscriptionClub).toLocaleDateString() : 'Non précisée'}
                 </Text>
-              </View>
-            </View>
-        
-            {/* Détails Parent */}
-            <View style={styles.detailCard}>
-              <Text style={styles.detailCardTitle}>Parent</Text>
-        
-              <View style={styles.detailItem}>
-  <Text style={styles.detailLabel}>Nom :</Text>
-  <Text style={styles.detailValue}>
-    {selectedEnfant?.nomParent && selectedEnfant.nomParent.trim() !== '' 
-      ? selectedEnfant.nomParent 
-      : 'Non précisé'}
-  </Text>
-</View>
-
-
-              <View style={styles.detailItem}>
-                <Text style={styles.detailLabel}>Email :</Text>
-                <Text style={styles.detailValue}>{selectedEnfant?.emailParent || 'Non précisé'}</Text>
-              </View>
-        
-              <View style={styles.detailItem}>
-                <Text style={styles.detailLabel}>Téléphone :</Text>
-                <Text style={styles.detailValue}>{selectedEnfant?.telephoneParent || 'Non précisé'}</Text>
               </View>
             </View>
         
@@ -1008,16 +939,17 @@ const handleUploadDocument = async () => {
             {/* Actions */}
             <View style={styles.actionButtons}>
 
-              <TouchableOpacity 
+<TouchableOpacity 
   style={[styles.button, styles.calendarButton]}
   onPress={() => {
     closeModal();
-    navigation.navigate('calendar'); // ← juste 'calendar'
+    navigation.navigate('AdherentDetailScreen', { adherentId: selectedEnfant.id }); // ✅ fixed
   }}
 >
-  <Ionicons name="calendar-outline" size={18} color="#FFFFFF" style={styles.buttonIcon} />
-  <Text style={styles.buttonText}>Planning</Text>
+  <Ionicons name="eye-outline" size={18} color="#FFFFFF" style={styles.buttonIcon} />
+  <Text style={styles.buttonText}>Voir plus</Text>
 </TouchableOpacity>
+
 
 
             </View>
@@ -1175,25 +1107,13 @@ const handleUploadDocument = async () => {
           
           <TouchableOpacity 
             style={styles.item} 
-            onPress={() => handlePress('notifications')}
-            activeOpacity={0.7}
-          >
-            <View style={styles.iconContainer}>
-              <Ionicons name="notifications-outline" size={22} color="#FFFFFF" style={styles.icon} />
-            </View>
-            <Text style={styles.label}>Notifications</Text>
-            <Ionicons name="chevron-forward" size={20} color="#8A6BFF" style={styles.arrowIcon} />
-          </TouchableOpacity>
-          
-          <TouchableOpacity 
-            style={styles.item} 
             onPress={() => handlePress('children')}
             activeOpacity={0.7}
           >
             <View style={styles.iconContainer}>
               <Ionicons name="people-outline" size={22} color="#FFFFFF" style={styles.icon} />
             </View>
-            <Text style={styles.label}>Gérer mes enfants</Text>
+            <Text style={styles.label}>Mes enfants</Text>
             <Ionicons name="chevron-forward" size={20} color="#8A6BFF" style={styles.arrowIcon} />
           </TouchableOpacity>
           
@@ -1696,11 +1616,7 @@ const handleUploadDocument = async () => {
     flex: 1,
   },
 
-  profileImage: {
-    width: '100%',
-    height: '100%',
-    resizeMode: 'cover',
-  },
+  
   childImage: {
     width: 36,
     height: 36,
@@ -1801,5 +1717,36 @@ previewImage: {
   alignSelf: 'center',
   marginBottom: 12,
 },
+  photoContainer: {
+    alignSelf: 'center',
+    marginBottom: 20,
+  },
+
+
+profileImage: {
+  width:90,
+  height: 90,
+  borderRadius: 60,
+  borderWidth: 2,
+  borderColor: '#8A6BFF',
+},
+
+placeholderImage: {
+  width: 120,
+  height: 120,
+  borderRadius: 60,
+  backgroundColor: '#eee',
+  justifyContent: 'center',
+  alignItems: 'center',
+  borderWidth: 1,
+  borderColor: '#ccc',
+},
+
+addPhotoText: {
+  marginTop: 6,
+  color: '#888',
+  fontSize: 12,
+},
 
 });
+
