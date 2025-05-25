@@ -4,24 +4,39 @@ import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, router } from 'expo-router';
 import {
   getAdherentById, getActivitiesByAdherent, getPerformancesByAdherent,
-  getNextSessionByAdherent, getParentCompetitions, getEquipesByAdherent
+  getNextSessionByAdherent, getEquipesByAdherent,
+  getCompetitionsByAdherent
 } from '@/services/adherent';
 
 export default function AdherentDetailScreen() {
   const { adherentId } = useLocalSearchParams();
   const id = Array.isArray(adherentId) ? adherentId[0] : adherentId;
+  console.log("🆔 adherentId utilisé pour fetch =", id);
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [month, setMonth] = useState<number | null>(null);
+
+  const toISODate = (dateStr: string) => {
+  const parts = dateStr.split('/');
+  if (parts.length === 3) {
+    const [day, month, year] = parts;
+    return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+  }
+  return dateStr; // fallback
+};
 
   useEffect(() => {
     (async () => {
       try {
         const [a, acts, perfs, sess, comps, teams] = await Promise.all([
-          getAdherentById(id), getActivitiesByAdherent(id),
-          getPerformancesByAdherent(id), getNextSessionByAdherent(id),
-          getParentCompetitions(), getEquipesByAdherent(id)
+          getAdherentById(id),
+          getActivitiesByAdherent(id),
+          getPerformancesByAdherent(id),
+          getNextSessionByAdherent(id),
+          getCompetitionsByAdherent(id),
+          getEquipesByAdherent(id),
         ]);
+
 
         setData({
           fullName: `${a.prenom} ${a.nom}` || 'Nom inconnu',
@@ -35,17 +50,19 @@ export default function AdherentDetailScreen() {
           performances: perfs.map(p => ({
             ...p,
             progress: p.progress || 0,
-            evaluationDate: format(p.evaluationDate),
+            evaluationDate: p.evaluationDate, // keep raw for filtering
+            formattedDate: format(p.evaluationDate),
             assignedCoach: p.assignedCoach || 'Non assigné',
             activity: p.activity || 'Inconnue',
-            level: p.level || '—',
             achievements: p.achievements || []
           })),
+
+
           competitions: comps.map(c => ({
             name: c.nom || 'Inconnue',
             date: format(c.date),
             location: c.lieu || 'Lieu inconnu',
-            result: c.resultat || '—'
+            result: c.resultat || 'à venir'
           })),
           sessions: sess ? [{
             activity: sess.activity || '—',
@@ -57,6 +74,8 @@ export default function AdherentDetailScreen() {
             coach: t.coachNom || '—'
           })) : []
         });
+        console.log("🎯 Compétitions de l'adhérent:", comps);
+
       } finally { setLoading(false); }
     })();
   }, [id]);
@@ -76,8 +95,9 @@ export default function AdherentDetailScreen() {
         <Text style={styles.headerTitle}>Détails de l'Adhérent</Text>
         <View style={{ width: 24 }} />
       </View>
-      <InfoCard data={data} />
-
+      <View style={styles.section}>
+        <InfoCard data={data} />
+      </View>
       <View style={styles.section}>
         <View style={styles.card}>
           <Text style={styles.sectionTitle}>Activités</Text>
@@ -98,36 +118,67 @@ export default function AdherentDetailScreen() {
         </View>
       </View>
 
-      <View style={styles.section}>
-        <View style={styles.card}>
-          <Text style={styles.sectionTitle}>Performances</Text>
-          <MonthFilter month={month} setMonth={setMonth} />
-          {(() => {
-            const filtered = data.performances.filter(p =>
-              month === null || new Date(p.evaluationDate).getMonth() === month
-            );
-            return filtered.length ? (
-              filtered.map((p, i) => <PerformanceCard key={i} perf={p} />)
-            ) : (
-              <Text style={styles.empty}>Aucune performance disponible pour ce mois</Text>
-            );
-          })()}
+<View style={styles.section}>
+  <View style={styles.card}>
+    <Text style={styles.sectionTitle}>Performances</Text>
+    <MonthFilter month={month} setMonth={setMonth} />
+    {(() => {
+      console.log("📊 Performances brutes =", data.performances);
+      console.log("🎯 Mois sélectionné =", month);
 
-        </View>
-      </View>
+const filtered = data.performances.filter(p => {
+  const date = new Date(p.evaluationDate);
+  const perfMonth = date.getMonth(); // 0 = Janvier
+  return month === null || perfMonth === month;
+});
+
+console.log("🎯 Performances filtrées =", filtered);
+      return filtered.length ? (
+        filtered.map((p, i) => <PerformanceCard key={i} perf={p} />)
+      ) : (
+        <Text style={styles.empty}>Aucune performance disponible pour ce mois</Text>
+      );
+    })()}
+  </View>
+</View>
 
       <View style={styles.section}>
         <View style={styles.card}>
           <Text style={styles.sectionTitle}>Compétitions</Text>
-          {data.competitions.length ? data.competitions.map((c, i) => (
-            <InfoRow key={i} label={`${c.name} - ${c.result}`} value={`${c.date}, ${c.location}`} />
-          )) : <Text style={styles.empty}>Aucune compétition</Text>}
+{data.competitions.length ? data.competitions.map((c, i) => (
+  <View key={i} style={styles.competitionCard}>
+    <Text style={styles.competitionTitle}>{c.name}</Text>
+    <Text style={styles.competitionDetail}>📅 {c.date}</Text>
+    <Text style={styles.competitionDetail}>📍 {c.location}</Text>
+    {c.result !== '—' && (
+      <Text style={styles.competitionResult}>🏆 Résultat : {c.result}</Text>
+    )}
+  </View>
+)) : <Text style={styles.empty}>Aucune compétition</Text>}
         </View>
       </View>
 
       <View style={styles.section}>
         <View style={styles.card}>
           <Text style={styles.sectionTitle}>Prochaines séances</Text>
+          {data.sessions.length ? data.sessions.map((s, i) => (
+            <InfoRow key={i} label={s.activity} value={`${s.date} - ${s.location}`} />
+          )) : <Text style={styles.empty}>Aucune séance à venir</Text>}
+        </View>
+      </View>
+
+      <View style={styles.section}>
+        <View style={styles.card}>
+          <Text style={styles.sectionTitle}>blessure</Text>
+          {data.sessions.length ? data.sessions.map((s, i) => (
+            <InfoRow key={i} label={s.activity} value={`${s.date} - ${s.location}`} />
+          )) : <Text style={styles.empty}>Aucune séance à venir</Text>}
+        </View>
+      </View>
+
+      <View style={styles.section}>
+        <View style={styles.card}>
+          <Text style={styles.sectionTitle}>presence</Text>
           {data.sessions.length ? data.sessions.map((s, i) => (
             <InfoRow key={i} label={s.activity} value={`${s.date} - ${s.location}`} />
           )) : <Text style={styles.empty}>Aucune séance à venir</Text>}
@@ -179,19 +230,29 @@ const MonthFilter = ({ month, setMonth }) => (
     ))}
   </ScrollView>
 );
+const getNoteColor = (note: number) => {
+  if (note >= 8) return { color: '#16A34A' }; // green
+  if (note >= 5) return { color: '#F59E0B' }; // amber
+  return { color: '#DC2626' };               // red
+};
+
 const PerformanceCard = ({ perf }) => (
   <View style={styles.card}>
-    <Text style={styles.label}>{perf.activity}</Text>
-    <Text style={styles.value}>Niveau: {perf.level}</Text>
-    <Text>Coach: {perf.assignedCoach}</Text>
-    <Text>Évalué le: {perf.evaluationDate}</Text>
-    <View style={styles.progress}>
-      <View style={[styles.bar, { width: `${perf.progress}%` }]} />
-    </View>
-    {perf.achievements.length ? perf.achievements.map((a, i) => <Text key={i}>🏆 {a}</Text>) :
-      <Text style={styles.empty}>Aucune réalisation</Text>}
+    <Text style={styles.label}>Activité : {perf.activity}</Text>
+    <Text style={[styles.value, getNoteColor(perf.progress)]}>
+      Note : {perf.progress}/10
+    </Text>    <Text style={styles.value}>Coach : {perf.assignedCoach}</Text>
+    <Text style={styles.value}>Date : {perf.formattedDate}</Text>
+
+    {perf.achievements.length ? perf.achievements.map((a, i) => (
+      <Text key={i}>💬 : {a}</Text>
+    )) : (
+      <Text style={styles.empty}>Aucun commentaire</Text>
+    )}
   </View>
 );
+
+
 const ReserveButton = () => (
   <TouchableOpacity style={styles.button} onPress={() => router.push('/activities')}>
     <Text style={styles.buttonText}>Réserver Plus</Text>
@@ -209,6 +270,39 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: 20,
   },
+  competitionCard: {
+  backgroundColor: '#F3F4F6',
+  padding: 14,
+  borderRadius: 16,
+  marginBottom: 12,
+  width: '100%',
+  shadowColor: '#000',
+  shadowOffset: { width: 0, height: 2 },
+  shadowOpacity: 0.05,
+  shadowRadius: 4,
+  elevation: 2,
+},
+
+competitionTitle: {
+  fontSize: 16,
+  fontWeight: 'bold',
+  color: '#4B0082',
+  marginBottom: 4,
+},
+
+competitionDetail: {
+  fontSize: 14,
+  color: '#374151',
+  marginBottom: 2,
+},
+
+competitionResult: {
+  fontSize: 14,
+  color: '#059669',
+  marginTop: 4,
+  fontWeight: '600',
+},
+
   header: {
   flexDirection: 'row',
   alignItems: 'center',
@@ -230,8 +324,8 @@ const styles = StyleSheet.create({
   card: {
   backgroundColor: '#FFFFFF',
   borderRadius: 24,
-  padding: 10,
-  marginBottom: 5,
+  paddingVertical: 16,
+  marginBottom: 30,
   shadowColor: '#8B5CF6',
   shadowOffset: { width: 0, height: 8 },
   shadowOpacity: 0.05,
@@ -239,7 +333,7 @@ const styles = StyleSheet.create({
   elevation: 6,
   alignItems: 'center',
   width: '100%',              // ← take full width
-  paddingHorizontal: 16,      // ← add horizontal padding inside
+  paddingHorizontal: 16,
 },
 
   avatar: {
@@ -256,8 +350,7 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
   section: {
-  paddingHorizontal: 20,
-  marginBottom: 10,
+  paddingHorizontal: 15,
 },
   sectionTitle: {
     fontSize: 17,

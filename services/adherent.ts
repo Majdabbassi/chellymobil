@@ -11,12 +11,15 @@ export interface CompetitionDTO {
 }
 
 export interface PerformanceDTO {
-  activity: string;
+  id?: number;
+  note: number;
   progress: number;
-  level: string;
-  achievements: string[];
   evaluationDate: string;
+  commentaire: string;
+  activity: string;
+  team: string;
   assignedCoach: string;
+  achievements: string[];
 }
 
 export interface SessionDTO {
@@ -89,15 +92,25 @@ export const getPerformancesByAdherent = async (
   adherentId: number | string
 ): Promise<PerformanceDTO[]> => {
   const { data } = await api.get(`/performances/adherent/${adherentId}`);
+  console.log("🔍 Données brutes performances =", data);
+
   return data.map((perf: any): PerformanceDTO => ({
-    activity: perf.activity || 'Activité inconnue',
+    id: perf.id,
+    note: perf.note,
     progress: typeof perf.note === 'number' ? perf.note : 0,
-    level: '—',
-    achievements: perf.commentaire ? [perf.commentaire] : [],
     evaluationDate: perf.date,
-    assignedCoach: perf.assignedCoach || 'Non assigné',
+    commentaire: perf.commentaire || '—',
+    activity: perf.activity || perf.activiteNom || perf.activite?.nom || 'Activité inconnue', // ✅ garde les vrais noms
+    team: perf.team || perf.adherent?.nomEquipe || '—',
+    assignedCoach: perf.assignedCoach || perf.coach?.nom || 'Non assigné',
+    achievements: perf.achievements || (perf.commentaire ? [perf.commentaire] : []),
   }));
 };
+
+
+
+
+
 
 export const getLastPerformanceForCurrentUser = async (): Promise<PerformanceDTO | null> => {
   try {
@@ -105,27 +118,37 @@ export const getLastPerformanceForCurrentUser = async (): Promise<PerformanceDTO
     if (!data) return null;
 
     return {
-      activity: data.activity || 'Activité inconnue',
+      id: data.id,
+      note: data.note,
       progress: typeof data.note === 'number' ? data.note : 0,
-      level: '—',
-      achievements: data.commentaire ? [data.commentaire] : [],
+      commentaire: data.commentaire || '—',
+      activity: data.activiteNom || 'Activité inconnue',
+      team: data.adherent?.nomEquipe || '—',
       evaluationDate: data.date,
-      assignedCoach: data.assignedCoach || 'Non assigné',
+      assignedCoach: data.coach?.nom || 'Non assigné',
+      achievements: data.commentaire ? [data.commentaire] : [],
     };
   } catch (error: any) {
     console.error("❌ Erreur lors de la récupération de la dernière performance:", error?.response?.data || error.message);
     return null;
   }
 };
+
+
+
+
 export const getCurrentParentInfo = async () => {
   const { data } = await api.get('/parents/me');
   return data;
 };
 
-export const getParentCompetitions = async (): Promise<CompetitionDTO[]> => {
-  const { data } = await api.get('/competitions/parent/me');
+export const getCompetitionsByAdherent = async (
+  adherentId: number | string
+): Promise<CompetitionDTO[]> => {
+  const { data } = await api.get(`/competitions/adherent/${adherentId}`);
   return data;
 };
+
 
 export const getNextSessionByAdherent = async (
   adherentId: number | string

@@ -883,7 +883,6 @@ const handleUploadDocument = async () => {
               </View>
             )}
         
-            {/* Performances */}
          {/* Performances */}
 <View style={styles.detailCard}>
   <Text style={styles.detailCardTitle}>Performances</Text>
