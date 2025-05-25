@@ -62,7 +62,9 @@ export default function AdherentDetailScreen() {
             name: c.nom || 'Inconnue',
             date: format(c.date),
             location: c.lieu || 'Lieu inconnu',
-            result: c.resultat || 'à venir'
+            result: c.resultat || '—',
+            winningPercentage: c.winningPercentage ?? null,
+            trophies: c.trophies || []
           })),
           sessions: sess ? [{
             activity: sess.activity || '—',
@@ -123,8 +125,7 @@ export default function AdherentDetailScreen() {
     <Text style={styles.sectionTitle}>Performances</Text>
     <MonthFilter month={month} setMonth={setMonth} />
     {(() => {
-      console.log("📊 Performances brutes =", data.performances);
-      console.log("🎯 Mois sélectionné =", month);
+
 
 const filtered = data.performances.filter(p => {
   const date = new Date(p.evaluationDate);
@@ -132,7 +133,6 @@ const filtered = data.performances.filter(p => {
   return month === null || perfMonth === month;
 });
 
-console.log("🎯 Performances filtrées =", filtered);
       return filtered.length ? (
         filtered.map((p, i) => <PerformanceCard key={i} perf={p} />)
       ) : (
@@ -142,21 +142,42 @@ console.log("🎯 Performances filtrées =", filtered);
   </View>
 </View>
 
-      <View style={styles.section}>
-        <View style={styles.card}>
-          <Text style={styles.sectionTitle}>Compétitions</Text>
-{data.competitions.length ? data.competitions.map((c, i) => (
-  <View key={i} style={styles.competitionCard}>
-    <Text style={styles.competitionTitle}>{c.name}</Text>
-    <Text style={styles.competitionDetail}>📅 {c.date}</Text>
-    <Text style={styles.competitionDetail}>📍 {c.location}</Text>
-    {c.result !== '—' && (
-      <Text style={styles.competitionResult}>🏆 Résultat : {c.result}</Text>
+<View style={styles.section}>
+  <View style={styles.card}>
+    <Text style={styles.sectionTitle}>Compétitions</Text>
+
+    {data.competitions.length ? data.competitions.map((c, i) => (
+      <View key={i} style={styles.competitionCard}>
+        <Text style={styles.competitionTitle}>{c.name}</Text>
+        
+        <Text style={styles.competitionDetail}>
+          📅 {c.date} {new Date(c.date) > new Date() ? '⏳ À venir' : '✅ Jouée'}
+        </Text>
+
+        <Text style={styles.competitionDetail}>📍 {c.location}</Text>
+
+        {c.result && c.result !== '—' && (
+          <Text style={styles.competitionResult}>🏆 Résultat : {c.result}</Text>
+        )}
+
+        {typeof c.winningPercentage === 'number' && c.winningPercentage > 50 && (
+          <Text style={styles.competitionBadge}>
+            🎖 Victoire ! {Math.round(c.winningPercentage)}%
+          </Text>
+        )}
+
+        {Array.isArray(c.trophies) && c.trophies.length > 0 && (
+          <Text style={styles.competitionDetail}>
+            🏅 Trophées : {c.trophies.join(', ')}
+          </Text>
+        )}
+      </View>
+    )) : (
+      <Text style={styles.empty}>Aucune compétition</Text>
     )}
   </View>
-)) : <Text style={styles.empty}>Aucune compétition</Text>}
-        </View>
-      </View>
+</View>
+
 
       <View style={styles.section}>
         <View style={styles.card}>
@@ -270,6 +291,46 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: 20,
   },
+  competitionCard: {
+  backgroundColor: '#F3F4F6',
+  padding: 14,
+  borderRadius: 12,
+  marginBottom: 12,
+  width: '100%',
+  shadowColor: '#000',
+  shadowOffset: { width: 0, height: 2 },
+  shadowOpacity: 0.05,
+  shadowRadius: 4,
+  elevation: 2,
+},
+
+competitionTitle: {
+  fontSize: 16,
+  fontWeight: 'bold',
+  color: '#4B0082',
+  marginBottom: 4,
+},
+
+competitionDetail: {
+  fontSize: 14,
+  color: '#374151',
+  marginBottom: 2,
+},
+
+competitionResult: {
+  fontSize: 14,
+  fontWeight: '600',
+  color: '#16A34A',
+  marginTop: 4,
+},
+
+competitionBadge: {
+  fontSize: 14,
+  fontWeight: 'bold',
+  color: '#D97706',
+  marginTop: 4,
+},
+
   competitionCard: {
   backgroundColor: '#F3F4F6',
   padding: 14,
