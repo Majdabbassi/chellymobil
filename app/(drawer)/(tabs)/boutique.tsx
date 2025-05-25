@@ -17,7 +17,6 @@ import {
   Platform,
   Animated
 } from 'react-native';
-import { Picker } from '@react-native-picker/picker';
 import { useRouter } from 'expo-router';
 import { getAllProducts } from '@/services/products';
 import { Ionicons, FontAwesome5, MaterialCommunityIcons } from '@expo/vector-icons';

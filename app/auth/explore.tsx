@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { View, Text, ScrollView, Image, TextInput, StyleSheet, Pressable } from 'react-native';
-import { useRouter } from 'expo-router';
+import { router, useRouter } from 'expo-router';
 import { useNavigation } from '@react-navigation/native';
 import { useLayoutEffect } from 'react';
 import { Ionicons } from '@expo/vector-icons';
@@ -50,61 +50,12 @@ const Header = ({ userName }) => (
   <View style={styles.headerContainer}>
     <View style={styles.header}>
       <Text style={styles.headerTitle}>ChellySport</Text>
-      <Ionicons name="notifications-outline" size={24} color="#FFF" />
     </View>
     <Text style={styles.greeting}>Hey, {userName}</Text>
   </View>
 );
 
-// Search bar component
-const SearchBar = () => (
-  <View style={styles.searchContainer}>
-    <Ionicons name="search" size={20} color="#8B5CF6" style={styles.searchIcon} />
-    <TextInput 
-      placeholder="Rechercher une activité ou un produit" 
-      style={styles.searchInput} 
-      placeholderTextColor="#9CA3AF"
-    />
-    <Ionicons name="options-outline" size={20} color="#8B5CF6" />
-  </View>
-);
 
-// Back button component
-const BackButton = ({ onPress }) => (
-  <Pressable style={styles.backButton} onPress={onPress}>
-    <Ionicons name="arrow-back-circle" size={36} color="#8B5CF6" />
-  </Pressable>
-);
-
-// Filter bar component
-const FilterBar = ({ filters, activeFilter, onFilterChange }) => (
-  <ScrollView
-    horizontal
-    showsHorizontalScrollIndicator={false}
-    style={styles.filterRow}
-    contentContainerStyle={styles.filterRowContent}
-  >
-    {filters.map((filter, index) => (
-      <Pressable
-        key={index}
-        onPress={() => onFilterChange(filter)}
-        style={[
-          styles.filterBtn,
-          activeFilter === filter && styles.filterBtnActive,
-        ]}
-      >
-        <Text
-          style={[
-            styles.filterText,
-            activeFilter === filter && styles.filterTextActive,
-          ]}
-        >
-          {filter}
-        </Text>
-      </Pressable>
-    ))}
-  </ScrollView>
-);
 
 // Stats display component - Fixed implementation
 const Stats = () => {
@@ -143,12 +94,6 @@ const Stats = () => {
         </Text>
         <Text style={styles.statLabel}>Coachs</Text>
       </View>
-      <View style={styles.statBox}>
-        <Text style={isLoading ? styles.statNumberLoading : styles.statNumber}>
-          {isLoading ? "..." : stats.trophees}
-        </Text>
-        <Text style={styles.statLabel}>Trophées</Text>
-      </View>
     </View>
   );
 };
@@ -172,7 +117,7 @@ const PromoBanner = () => (
       </Text>
       <Text style={styles.promoSub}>Valable jusqu'au 30 avril pour les nouveaux adhérents</Text>
     </View>
-    <Pressable style={styles.promoButton} onPress={() => console.log('Inscription')}>
+    <Pressable style={styles.promoButton} onPress={() => router.push('/auth/register')}>
       <Text style={styles.promoButtonText}>📥 Inscrire mon enfant</Text>
     </Pressable>
   </View>
@@ -193,7 +138,6 @@ const HorizontalCardList = ({ data, renderItem }) => (
 const Footer = () => (
   <View style={styles.footer}>
     <Text style={styles.footerText}>© 2025 ChellySport</Text>
-    <Text style={styles.footerLink}>Mentions légales · Contact · Aide</Text>
   </View>
 );
 
@@ -208,48 +152,7 @@ export default function ExploreScreen() {
   const [activeFilter, setActiveFilter] = useState('All');
   const [products, setProducts] = useState([]);
   const [competitions, setCompetitions] = useState([]);
-  const [categories, setCategories] = useState([
-    {
-      title: 'Sport',
-      count: '12 activités',
-      image: 'https://cdn-icons-png.flaticon.com/512/3120/3120730.png',
-    },
-    {
-      title: 'Compétitions',
-      count: '8 compétitions',
-      image: 'https://cdn-icons-png.flaticon.com/512/1599/1599828.png',
-    },
-    {
-      title: 'Événements',
-      count: '5 événements',
-      image: 'https://cdn-icons-png.flaticon.com/512/912/912314.png',
-    },
-    {
-      title: 'Nutrition',
-      count: '6 conseils',
-      image: 'https://cdn-icons-png.flaticon.com/512/1786/1786669.png',
-    },
-    {
-      title: 'Coaching',
-      count: '4 coachs',
-      image: 'https://cdn-icons-png.flaticon.com/512/3135/3135789.png', // Icône de coach
-    },
-    {
-      title: 'Préparation Physique',
-      count: '3 programmes',
-      image: 'https://cdn-icons-png.flaticon.com/512/2331/2331948.png', // Icône fitness
-    },
-    {
-      title: 'Rééducation',
-      count: '2 soins',
-      image: 'https://cdn-icons-png.flaticon.com/512/2942/2942713.png', // Icône soin
-    },
-    {
-      title: 'Bien-être',
-      count: '5 sessions',
-      image: 'https://cdn-icons-png.flaticon.com/512/3523/3523063.png', // Icône zen
-    },
-  ]);
+
   
 
   useEffect(() => {
@@ -526,9 +429,6 @@ export default function ExploreScreen() {
               </Text>
             </View>
           </View>
-          <Pressable style={styles.competitionCardButton}>
-            <Text style={styles.competitionCardButtonText}>S'inscrire</Text>
-          </Pressable>
         </View>
       </Card>
     );
@@ -540,14 +440,10 @@ export default function ExploreScreen() {
 
   return (
     <ScrollView style={styles.container} ref={scrollRef}>
-      {/* Back Button */}
-      <BackButton onPress={() => router.push('/auth/parent-login')} />
       
       {/* Header */}
       <Header userName="Parent" />
       
-      {/* Search Bar */}
-      <SearchBar />
       
       {/* Stats & Motivation */}
       <Section noBackground>
@@ -557,21 +453,10 @@ export default function ExploreScreen() {
         </View>
       </Section>
       
-      {/* Categories */}
-      <Section 
-        title="📂 Catégories" 
-        seeAllLink="Voir tout"
-        onSeeAll={() => console.log('See all categories')}
-      >
-        <HorizontalCardList
-          data={categories}
-          renderItem={renderCategoryCard}
-        />
-      </Section>
-      
       {/* Promo Banner */}
       <PromoBanner />
       
+
       {/* Popular Products */}
       <Section 
   title="🛍️ Produits populaires" 
@@ -587,21 +472,6 @@ export default function ExploreScreen() {
       
       {/* Activities */}
       <Section title="📋 Activités proposées">
-        <View style={styles.sectionHeader}>
-          <View style={styles.navigationControls}>
-            <Pressable onPress={scrollLeft}>
-              <Ionicons name="chevron-back" size={20} color="#8B5CF6" />
-            </Pressable>
-            <Pressable onPress={scrollRight}>
-              <Ionicons name="chevron-forward" size={20} color="#8B5CF6" />
-            </Pressable>
-          </View>
-          <Pressable onPress={() => router.push('(tabs)/all-activities')}>
-            <Text style={styles.seeAll}>
-              Voir tout <Ionicons name="chevron-forward-outline" size={14} color="#8B5CF6" />
-            </Text>
-          </Pressable>
-        </View>
         <ScrollView 
           horizontal 
           showsHorizontalScrollIndicator={false} 
@@ -621,28 +491,10 @@ export default function ExploreScreen() {
         </ScrollView>
       </Section>
       
-      {/* Events */}
-      <Section 
-        title="📅 Événements à venir" 
-        seeAllLink="Voir tout"
-        onSeeAll={() => router.push('(tabs)/events')}
-      >
-        <HorizontalCardList
-          data={evenements.map((event) => ({
-            title: event.nom,
-            date: `📅 ${event.date}`,
-            type: event.type || 'Événement',
-            image: { uri: event.imageBase64 || 'https://cdn-icons-png.flaticon.com/512/2800/2800382.png' },
-          }))}
-          renderItem={renderEventCard}
-        />
-      </Section>
       
       {/* Top Coaches */}
       <Section 
-        title="👨‍🏫 Top Coachs" 
-        seeAllLink="Voir tout"
-        onSeeAll={() => router.push('(tabs)/coachs')}
+        title="👨‍🏫 Coachs" 
       >
       <HorizontalCardList
   data={coachs.map(c => ({
@@ -657,11 +509,6 @@ export default function ExploreScreen() {
       
       {/* Competitions */}
       <Section title="🏆 Compétitions à venir">
-        <FilterBar 
-          filters={filters}
-          activeFilter={activeFilter}
-          onFilterChange={setActiveFilter}
-        />
 
         {filteredCompetitions.length === 0 ? (
           <View style={styles.emptyCompetitionContainer}>
@@ -687,9 +534,6 @@ export default function ExploreScreen() {
 
 // ==========================================
 // STYLES
-// ==========================================
-// ==========================================
-// STYLES AMÉLIORÉS
 // ==========================================
 const styles = StyleSheet.create({
   // Layout & containers - Design de luxe et aspect premium

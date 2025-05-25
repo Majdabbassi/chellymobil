@@ -130,14 +130,7 @@ export default function LoginFormScreen() {
           </View>
 
           <View style={styles.optionsRow}>
-            <TouchableOpacity onPress={() => setRememberMe(!rememberMe)} style={styles.checkboxRow}>
-              <View style={[styles.checkbox, rememberMe && styles.checkboxActive]}>
-                {rememberMe && <Feather name="check" size={12} color="#fff" />}
-              </View>
-              <Text style={styles.rememberText}>Se souvenir de moi</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity>
+            <TouchableOpacity onPress={() => router.push('/forgot-password')}>
               <Text style={styles.forgotText}>Mot de passe oublié ?</Text>
             </TouchableOpacity>
           </View>
@@ -163,9 +156,6 @@ export default function LoginFormScreen() {
 
         <View style={styles.footer}>
           <Text style={styles.footerText}>© 2025 ChellySport</Text>
-          <TouchableOpacity onPress={() => console.log('Besoin d\'aide')}>
-            <Text style={styles.footerLink}>Besoin d'aide ?</Text>
-          </TouchableOpacity>
         </View>
       </ImageBackground>
     </SafeAreaView>
@@ -241,7 +231,7 @@ const styles = StyleSheet.create({
   },
   optionsRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    justifyContent: 'center',
     marginBottom: 20,
     alignItems: 'center',
   },
@@ -309,7 +299,7 @@ const styles = StyleSheet.create({
   footer: {
     width: '100%',
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    justifyContent: 'center',
     borderTopWidth: 1,
     borderTopColor: '#D1D5DB',
     paddingTop: 12,

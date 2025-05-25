@@ -131,9 +131,6 @@ export default function ParentLoginScreen() {
         {/* Footer */}
         <View style={styles.footer}>
           <Text style={styles.footerText}>© 2025 ChellySport</Text>
-          <TouchableOpacity onPress={() => console.log('Besoin d\'aide')}>
-            <Text style={styles.footerLink}>Besoin d'aide ?</Text>
-          </TouchableOpacity>
         </View>
         
       </ImageBackground>
@@ -269,7 +266,7 @@ const styles = StyleSheet.create({
   footer: {
     width: '100%',
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    justifyContent: 'center',
     borderTopWidth: 1,
     borderTopColor: '#D1D5DB',
     paddingTop: 12,
