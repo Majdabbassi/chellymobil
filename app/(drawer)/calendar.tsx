@@ -246,18 +246,24 @@ export default function CalendarScreen() {
 
     const loadSessions = useCallback( 
     async (month: number, year: number, adherentIdOverride?: number) => {
-    if (!parentData || (!currentAdherent && !adherentIdOverride)) return;
+    if (!parentData) return;
 
-    const adherentId = adherentIdOverride || currentAdherent.id;
 
     try {
       setLoading(true);
-      const data = await getCalendarSessions({
+
+      const params = {
         parentId: parentData.id,
-        adherentId,
         month,
         year
-      });
+      };
+
+      if (adherentIdOverride || currentAdherent?.id) {
+        params.adherentId = adherentIdOverride || currentAdherent.id;
+      }
+
+      const data = await getCalendarSessions(params);
+
 
       const formattedSessions: CalendarSessions = {};
 
@@ -321,14 +327,16 @@ useEffect(() => {
   };
 
 
-
-  const changeAdherent = (adherent: Adherent) => {
+const changeAdherent = (adherent: Adherent) => {
+  // if tapping the same one again → deselect
+  if (currentAdherent?.id === adherent.id) {
+    setCurrentAdherent(null);
+    loadSessions(currentMonth, currentYear);           // no override = all
+  } else {
     setCurrentAdherent(adherent);
-    setSessions({});
-    setSelected('');
-    loadSessions(currentMonth, currentYear);
-  };
-
+    loadSessions(currentMonth, currentYear, adherent.id);
+  }
+};
   const onDayPress = (day: { dateString: string }) => {
     setSelected(day.dateString);
   };
