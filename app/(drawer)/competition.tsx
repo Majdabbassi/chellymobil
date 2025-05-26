@@ -16,7 +16,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
 
 const { width } = Dimensions.get('window');
-const API_URL = Constants.expoConfig?.extra?.apiUrl ?? 'http://192.168.100.16:8080';
+const API_URL = Constants.expoConfig?.extra?.apiUrl ?? 'http://192.168.227.138:8080';
 
 export default function CompetitionListScreen() {
   const [competitions, setCompetitions] = useState([]);

@@ -23,6 +23,7 @@ import { router } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker'; // ← important !
 import * as DocumentPicker from 'expo-document-picker';
 import { getAdherentsOfCurrentParent } from '@/services/adherent';
+import { handleLogout } from '@/services/deconnect';
 
 const pickImage = async (): Promise<string | null> => {
   
@@ -74,6 +75,7 @@ export default function ParametresScreen() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const navigation = useNavigation<any>();
   const [imageUri, setImageUri] = useState<string | null>(null);
+const [showLogoutModal, setShowLogoutModal] = useState(false);
 
   // États pour les données utilisateur
   const [userData, setUserData] = useState({
@@ -402,20 +404,7 @@ const handleUploadDocument = async () => {
     }
   };
   
-  const handleLogout = async () => {
-    try {
-      console.log("🔵 Déconnexion en cours...");
-      // Ne supprime que ce qui est nécessaire
-      await AsyncStorage.multiRemove(['token', 'userId']);
-      setIsAuthenticated(false);
-      console.log("✅ Déconnexion réussie");
-      // Replace pour éviter d’empiler les écrans
-      router.replace('/auth/login');
-    } catch (error) {
-      console.error("❌ Erreur lors de la déconnexion:", error);
-      Alert.alert("Erreur", "Un problème est survenu lors de la déconnexion");
-    }
-  };
+
   
   
   
@@ -1128,25 +1117,17 @@ const handleUploadDocument = async () => {
             <Ionicons name="chevron-forward" size={20} color="#8A6BFF" style={styles.arrowIcon} />
           </TouchableOpacity>
 
-          <TouchableOpacity 
-        style={[styles.item, styles.logoutItem]} 
-        onPress={() =>
-          Alert.alert(
-            "Déconnexion", 
-            "Êtes-vous sûr de vouloir vous déconnecter ?", 
-            [
-              { text: "Annuler", style: "cancel" },
-              { text: "Déconnexion", style: "destructive", onPress: handleLogout }
-            ]
-          )
-        }
-        activeOpacity={0.7}
-      >
-        <View style={[styles.iconContainer, styles.logoutIconContainer]}>
-          <Ionicons name="log-out-outline" size={22} color="#FFFFFF" style={styles.icon} />
-        </View>
-        <Text style={styles.logoutLabel}>Déconnexion</Text>
-      </TouchableOpacity>
+<TouchableOpacity 
+  style={[styles.item, styles.logoutItem]} 
+  activeOpacity={0.7}
+  onPress={() => setShowLogoutModal(true)}
+>
+  <View style={[styles.iconContainer, styles.logoutIconContainer]}>
+    <Ionicons name="log-out-outline" size={22} color="#FFFFFF" style={styles.icon} />
+  </View>
+  <Text style={styles.logoutLabel}>Déconnexion</Text>
+</TouchableOpacity>
+
 
         </ScrollView>
       )}
@@ -1183,7 +1164,47 @@ const handleUploadDocument = async () => {
           </View>
         </View>
       </Modal>
+<Modal
+  visible={showLogoutModal}
+  transparent
+  animationType="fade"
+  onRequestClose={() => setShowLogoutModal(false)}
+>
+  <View style={styles.modalOverlay}>
+    <View style={styles.logoutModalBox}>
+      <Ionicons name="alert-circle" size={48} color="#EF4444" style={{ alignSelf: 'center', marginBottom: 12 }} />
+
+      <Text style={styles.logoutModalTitle}>Confirmer la déconnexion</Text>
+      <Text style={styles.logoutModalMessage}>
+        Êtes-vous sûr de vouloir vous déconnecter ? Toutes les données non sauvegardées seront perdues.
+      </Text>
+
+      <View style={styles.logoutModalActions}>
+        <TouchableOpacity 
+          style={[styles.modalButton, styles.cancelButton]}
+          onPress={() => setShowLogoutModal(false)}
+        >
+          <Text style={[styles.modalButtonText, { color: '#1F2937' }]}>Annuler</Text>
+        </TouchableOpacity>
+        <TouchableOpacity 
+          style={[styles.modalButton, styles.confirmButton]}
+          onPress={async () => {
+            await AsyncStorage.multiRemove(['token', 'userId']);
+            setShowLogoutModal(false);
+            router.replace('/auth/login');
+          }}
+        >
+          <Text style={styles.modalButtonText}>Déconnexion</Text>
+        </TouchableOpacity>
+      </View>
+    </View>
+  </View>
+</Modal>
+
+
     </SafeAreaView>
+
+    
   );
 }const styles = StyleSheet.create({
   container: {
@@ -1745,6 +1766,62 @@ addPhotoText: {
   marginTop: 6,
   color: '#888',
   fontSize: 12,
+},
+logoutModalBox: {
+  backgroundColor: '#FFFFFF',
+  marginHorizontal: 30,
+  marginVertical:300,
+  borderRadius: 16,
+  padding: 24,
+  alignItems: 'center',
+  shadowColor: '#000',
+  shadowOffset: { width: 0, height: 4 },
+  shadowOpacity: 0.2,
+  shadowRadius: 6,
+  elevation: 10,
+},
+
+logoutModalTitle: {
+  fontSize: 18,
+  fontWeight: '700',
+  color: '#1F2937',
+  marginBottom: 8,
+  textAlign: 'center',
+},
+
+logoutModalMessage: {
+  fontSize: 15,
+  color: '#4B5563',
+  textAlign: 'center',
+  marginBottom: 20,
+},
+
+logoutModalActions: {
+  flexDirection: 'row',
+  justifyContent: 'space-between',
+  width: '100%',
+},
+
+modalButton: {
+  flex: 1,
+  paddingVertical: 12,
+  borderRadius: 8,
+  alignItems: 'center',
+  marginHorizontal: 5,
+},
+
+cancelButton: {
+  backgroundColor: '#F3F4F6',
+},
+
+confirmButton: {
+  backgroundColor: '#EF4444',
+},
+
+modalButtonText: {
+  fontSize: 16,
+  fontWeight: '600',
+  color: '#FFFFFF',
 },
 
 });

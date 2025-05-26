@@ -5,9 +5,6 @@ import {
 } from 'react-native';
 import { useCart } from '../../../contexts/CartContext';
 import { Ionicons } from '@expo/vector-icons';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import axios from 'axios';
-import Constants from 'expo-constants';
 import { useNavigation } from '@react-navigation/native';
 import API from '@/services/api';
 const getImageSource = (image?: string) => {

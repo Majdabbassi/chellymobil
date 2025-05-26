@@ -1,18 +1,17 @@
 import React, { useRef, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Animated, Dimensions } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Animated, Dimensions, Alert } from 'react-native';
 import { DrawerContentScrollView } from '@react-navigation/drawer';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
-import { BlurView } from 'expo-blur';
-
-const { height } = Dimensions.get('window');
+import { Image } from 'react-native';
 
 interface CustomDrawerProps {
   user: {
     nom: string;
     prenom: string;
     email: string;
+    avatar?: string;
   };
   [key: string]: any;
 }
@@ -70,11 +69,7 @@ const MenuItem = ({ icon, text, onPress, isLogout = false }) => {
         ]}
       >
         <View style={[styles.iconContainer, isLogout && styles.logoutIconContainer]}>
-          <Ionicons 
-            name={icon} 
-            size={22} 
-            color={isLogout ? "#FF6B6B" : "#8B5CF6"} 
-          />
+          <Ionicons name={icon} size={22} color={isLogout ? "#FF6B6B" : "#8B5CF6"} />
         </View>
         <Text style={[styles.menuText, isLogout && styles.logoutText]}>
           {text}
@@ -128,28 +123,31 @@ export default function CustomDrawerContent({ user, ...props }: CustomDrawerProp
         colors={['rgba(139, 92, 246, 0.1)', 'rgba(168, 85, 247, 0.05)', 'transparent']}
         style={styles.gradientOverlay}
       />
-      
+
       <Animated.View 
-        style={[
-          styles.header,
-          {
-            transform: [{ translateY: slideAnim }],
-            opacity: fadeAnim,
-          },
-        ]}
+        style={[styles.header, { transform: [{ translateY: slideAnim }], opacity: fadeAnim }]}
       >
-        <View style={styles.avatarContainer}>
-          <LinearGradient
-            colors={['#8B5CF6', '#A855F7', '#C084FC']}
-            style={styles.avatarGradient}
-          >
-            <Text style={styles.avatarText}>
-              {user.prenom.charAt(0)}{user.nom.charAt(0)}
-            </Text>
-          </LinearGradient>
-          <View style={styles.onlineIndicator} />
-        </View>
-        
+<View style={styles.avatarContainer}>
+  {user.avatar ? (
+    <Image 
+      source={{ uri: user.avatar }}
+      style={styles.drawerAvatarImage}
+      resizeMode="cover"
+    />
+  ) : (
+    <LinearGradient
+      colors={['#8B5CF6', '#A855F7', '#C084FC']}
+      style={styles.avatarGradient}
+    >
+      <Text style={styles.avatarText}>
+        {user.prenom.charAt(0)}{user.nom.charAt(0)}
+      </Text>
+    </LinearGradient>
+  )}
+  <View style={styles.onlineIndicator} />
+</View>
+
+
         <View style={styles.userInfo}>
           <Text style={styles.username}>{user.prenom} {user.nom}</Text>
           <Text style={styles.email}>{user.email}</Text>
@@ -158,47 +156,20 @@ export default function CustomDrawerContent({ user, ...props }: CustomDrawerProp
 
       <View style={styles.divider} />
 
-      <Animated.View 
-        style={[
-          styles.menuContainer,
-          {
-            opacity: fadeAnim,
-          },
-        ]}
-      >
+      <Animated.View style={[styles.menuContainer, { opacity: fadeAnim }]}>
         {menuItems.map((item, index) => (
           <Animated.View
             key={index}
             style={{
-              transform: [{
-                translateX: slideAnim.interpolate({
-                  inputRange: [-50, 0],
-                  outputRange: [-30, 0],
-                })
-              }],
+              transform: [{ translateX: slideAnim.interpolate({ inputRange: [-50, 0], outputRange: [-30, 0] }) }],
               opacity: fadeAnim,
             }}
           >
-            <MenuItem
-              icon={item.icon}
-              text={item.text}
-              onPress={item.action}
-            />
+            <MenuItem icon={item.icon} text={item.text} onPress={item.action} />
           </Animated.View>
         ))}
 
-        <View style={styles.logoutSection}>
-          <MenuItem
-            icon="log-out-outline"
-            text="Se déconnecter"
-            onPress={() => {
-              props.navigation.reset({ index: 0, routes: [{ name: 'login' }] });
-            }}
-            isLogout={true}
-          />
-        </View>
       </Animated.View>
-
     </DrawerContentScrollView>
   );
 }
@@ -216,6 +187,14 @@ const styles = StyleSheet.create({
     right: 0,
     height: 200,
   },
+  drawerAvatarImage: {
+  width: 80,
+  height: 80,
+  borderRadius: 40,
+  borderWidth: 2,
+  borderColor: '#FFFFFF',
+},
+
   header: {
     alignItems: 'center',
     paddingHorizontal: 20,
@@ -232,10 +211,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     shadowColor: '#8B5CF6',
-    shadowOffset: {
-      width: 0,
-      height: 8,
-    },
+    shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.3,
     shadowRadius: 16,
     elevation: 10,
@@ -291,10 +267,7 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     backgroundColor: '#FFFFFF',
     shadowColor: '#8B5CF6',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
+    shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.08,
     shadowRadius: 8,
     elevation: 3,
@@ -331,15 +304,5 @@ const styles = StyleSheet.create({
     paddingTop: 20,
     borderTopWidth: 1,
     borderTopColor: 'rgba(139, 92, 246, 0.1)',
-  },
-  footer: {
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    alignItems: 'center',
-  },
-  footerText: {
-    fontSize: 12,
-    color: '#9CA3AF',
-    fontWeight: '500',
   },
 });

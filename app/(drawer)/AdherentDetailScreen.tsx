@@ -7,6 +7,20 @@ import {
   getNextSessionByAdherent, getEquipesByAdherent,
   getCompetitionsByAdherent
 } from '@/services/adherent';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import axios from 'axios';
+import API from '@/services/api';
+
+interface Blessure {
+  id: number;
+  description: string;
+  resolved: boolean;
+  date: string;
+  retour: string | null;
+  gravite: string;
+  methode: string;
+  duree: string;
+}
 
 export default function AdherentDetailScreen() {
   const { adherentId } = useLocalSearchParams();
@@ -15,14 +29,16 @@ export default function AdherentDetailScreen() {
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [month, setMonth] = useState<number | null>(null);
+const [blessures, setBlessures] = useState<Blessure[]>([]);
+const [presenceHistory, setPresenceHistory] = useState([]);
 
-  const toISODate = (dateStr: string) => {
-  const parts = dateStr.split('/');
-  if (parts.length === 3) {
-    const [day, month, year] = parts;
-    return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+const getGraviteColor = (gravite: string) => {
+  switch (gravite.toLowerCase()) {
+    case 'grave': return { color: '#DC2626' };       // rouge
+    case 'modérée': return { color: '#F59E0B' };     // orange
+    case 'légère': return { color: '#16A34A' };      // vert
+    default: return { color: '#6B7280' };
   }
-  return dateStr; // fallback
 };
 
   useEffect(() => {
@@ -76,7 +92,6 @@ export default function AdherentDetailScreen() {
             coach: t.coachNom || '—'
           })) : []
         });
-        console.log("🎯 Compétitions de l'adhérent:", comps);
 
       } finally { setLoading(false); }
     })();
@@ -84,7 +99,33 @@ export default function AdherentDetailScreen() {
 
   const calcAge = d => d ? new Date().getFullYear() - new Date(d).getFullYear() : '?';
   const format = d => d ? new Date(d).toLocaleDateString('fr-FR') : '—';
+useEffect(() => {
+  if (adherentId) {
+    API.get(`/presences/adherent/${adherentId}/history`)
+      .then(res => setPresenceHistory(res.data))
+      .catch(err => console.error("❌ Erreur récupération historique des présences", err));
+  }
+}, [adherentId]);
+useEffect(() => {
+  if (adherentId) {
+    fetchBlessures(Number(id)); // ✅ use `Number(id)`
+  }
+}, [adherentId]);
 
+const fetchBlessures = async (id: number) => {
+  try {
+    const token = await AsyncStorage.getItem('token');
+    const response = await axios.get(`http://localhost:8080/api/blessures/adherent/${id}`, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+
+    setBlessures(response.data);
+  } catch (error) {
+    console.error("❌ Erreur lors du chargement des blessures", error);
+  }
+};
   if (loading) return <Loader />;
   if (!data) return <Error />;
 
@@ -178,23 +219,53 @@ const filtered = data.performances.filter(p => {
   </View>
 </View>
 
-      <View style={styles.section}>
-        <View style={styles.card}>
-          <Text style={styles.sectionTitle}>blessure</Text>
-          {data.sessions.length ? data.sessions.map((s, i) => (
-            <InfoRow key={i} label={s.activity} value={`${s.date} - ${s.location}`} />
-          )) : <Text style={styles.empty}>Aucune séance à venir</Text>}
+<View style={styles.section}>
+  <View style={styles.card}>
+    <Text style={styles.sectionTitle}>Historique de présence</Text>
+    {presenceHistory.length > 0 ? (
+      presenceHistory.map((p, i) => (
+        <View key={i} style={styles.row}>
+          <Text style={styles.label}>
+            {new Date(p.sessionDateTime).toLocaleDateString()} 
+          </Text>
+          <Text style={{ color: p.present ? '#16A34A' : '#DC2626' }}>
+            {p.present ? '✅ Présent' : '❌ Absent'}
+          </Text>
         </View>
-      </View>
+      ))
+    ) : (
+      <Text style={styles.empty}>Aucune donnée de présence</Text>
+    )}
+  </View>
+</View>
 
-      <View style={styles.section}>
-        <View style={styles.card}>
-          <Text style={styles.sectionTitle}>presence</Text>
-          {data.sessions.length ? data.sessions.map((s, i) => (
-            <InfoRow key={i} label={s.activity} value={`${s.date} - ${s.location}`} />
-          )) : <Text style={styles.empty}>Aucune séance à venir</Text>}
+<View style={styles.section}>
+  <View style={styles.card}>
+    <Text style={styles.sectionTitle}>Blessures</Text>
+    {blessures.length > 0 ? (
+      blessures.map((b, i) => (
+        <View key={i} style={styles.blessureCard}>
+          <View style={styles.blessureHeader}>
+            <Text style={[styles.blessureDate, getGraviteColor(b.gravite)]}>
+              📅 {format(b.date)} ({b.gravite})
+            </Text>
+            <Text style={styles.blessureStatus}>
+              {b.resolved ? '✅ Résolue' : '❌ En cours'}
+            </Text>
+          </View>
+          <Text style={styles.blessureDesc}>
+            📝 {b.description} — 🩺 {b.methode}
+          </Text>
+          <Text style={styles.blessureFooter}>
+            ⏳ Durée : {b.duree} | 🏃 Retour prévu : {b.retour ? format(b.retour) : '—'}
+          </Text>
         </View>
-      </View>
+      ))
+    ) : (
+      <Text style={styles.empty}>Aucune blessure enregistrée</Text>
+    )}
+  </View>
+</View>
       
     </ScrollView>
   );
@@ -294,6 +365,46 @@ const styles = StyleSheet.create({
   shadowRadius: 4,
   elevation: 2,
 },
+blessureCard: {
+  backgroundColor: '#F9FAFB',
+  padding: 12,
+  borderRadius: 12,
+  marginBottom: 12,
+  width: '100%',
+  shadowColor: '#000',
+  shadowOffset: { width: 0, height: 1 },
+  shadowOpacity: 0.05,
+  shadowRadius: 2,
+  elevation: 2,
+},
+
+blessureHeader: {
+  flexDirection: 'row',
+  justifyContent: 'space-between',
+  marginBottom: 4,
+},
+
+blessureDate: {
+  fontSize: 14,
+  fontWeight: '500',
+},
+
+blessureStatus: {
+  fontSize: 14,
+  fontWeight: '500',
+},
+
+blessureDesc: {
+  fontSize: 15,
+  fontWeight: 'bold',
+  color: '#111827',
+  marginBottom: 4,
+},
+
+blessureFooter: {
+  fontSize: 13,
+  color: '#6B7280',
+},
 
 competitionTitle: {
   fontSize: 16,
@@ -322,38 +433,6 @@ competitionBadge: {
   marginTop: 4,
 },
 
-  competitionCard: {
-  backgroundColor: '#F3F4F6',
-  padding: 14,
-  borderRadius: 16,
-  marginBottom: 12,
-  width: '100%',
-  shadowColor: '#000',
-  shadowOffset: { width: 0, height: 2 },
-  shadowOpacity: 0.05,
-  shadowRadius: 4,
-  elevation: 2,
-},
-
-competitionTitle: {
-  fontSize: 16,
-  fontWeight: 'bold',
-  color: '#4B0082',
-  marginBottom: 4,
-},
-
-competitionDetail: {
-  fontSize: 14,
-  color: '#374151',
-  marginBottom: 2,
-},
-
-competitionResult: {
-  fontSize: 14,
-  color: '#059669',
-  marginTop: 4,
-  fontWeight: '600',
-},
 
   header: {
   flexDirection: 'row',

@@ -27,7 +27,7 @@ export default function ResetPasswordScreen() {
     }
 
     try {
-      await axios.post('http://192.168.100.16:8080/api/password-reset/confirm', {
+      await axios.post('http://192.168.227.138:8080/api/password-reset/confirm', {
         token: token, 
         newPassword: password,
       });

@@ -164,6 +164,7 @@ export default function ExploreScreen() {
     fetchProducts();
   }, []);
 
+
   const [coachs, setCoachs] = useState([]);
   useEffect(() => {
     const fetchCoachs = async () => {
@@ -227,24 +228,7 @@ export default function ExploreScreen() {
   const scrollRight = () => scrollRef.current?.scrollTo({ x: 200, animated: true });
   const scrollLeft = () => scrollRef.current?.scrollTo({ x: 0, animated: true });
 
-  // Render functions for list items
-  const renderCategoryCard = (category, index) => (
-    <Card 
-      key={index} 
-      style={styles.categoryCard}
-      onPress={() => {
-        setActiveFilter(category.title);
-        // Scroll to competitions section
-        scrollRef.current?.scrollToEnd({ animated: true });
-      }}
-    >
-      <Image source={{ uri: category.image }} style={styles.categoryImage} />
-      <View style={styles.cardBody}>
-        <Text style={styles.cardTitle}>{category.title}</Text>
-        <Text style={styles.cardSubtitle}>{category.count}</Text>
-      </View>
-    </Card>
-  );
+
 
   const renderActivityCard = (activity, index) => {
     let imageUri = activity.image?.uri || activity.image;
@@ -299,60 +283,7 @@ export default function ExploreScreen() {
       </Card>
     );
   };
-  const renderEventCard = (event, index) => {
-    // 1. Récupération & nettoyage du Base64 (identique à renderCompetitionCard)
-    let rawBase64 = event.imageBase64 || '';
-    const cleanBase64 = rawBase64.replace(/^data:image\/[a-z]+;base64,/, '');
-  
-    // 2. Construction de l'URI pour Image avec fallback
-    const imageUri = cleanBase64
-      ? `data:image/jpeg;base64,${cleanBase64}`
-      : 'https://cdn-icons-png.flaticon.com/512/2800/2800382.png'; // Fallback
-  
-    return (
-      <Card key={event.id || `event-${index}`} style={styles.eventCard}>
-        <View style={styles.competitionCardHeader}>
-          <Text style={styles.competitionCardType}>{event.type || 'Événement'}</Text>
-          <Text style={styles.competitionCardCategory}>{event.organisateur || ''}</Text>
-        </View>
-  
-        <View style={styles.competitionCardImageContainer}>
-          <Image
-            source={{ uri: imageUri }}
-            style={styles.competitionCardImage}
-            resizeMode="cover"
-            onError={(e) => {
-              console.log('❌ Erreur image événement:', e.nativeEvent);
-            }}
-          />
-        </View>
-  
-        <View style={styles.competitionCardBody}>
-          <Text style={styles.competitionCardTitle} numberOfLines={1}>
-            {event.nom || event.title || 'Événement sans nom'}
-          </Text>
-          <View style={styles.competitionCardDetails}>
-            <View style={styles.competitionCardDetail}>
-              <Ionicons name="calendar-outline" size={16} color="#8B5CF6" />
-              <Text style={styles.competitionCardDetailText}>
-                {event.date || 'Date à confirmer'}
-              </Text>
-            </View>
-            <View style={styles.competitionCardDetail}>
-              <Ionicons name="location-outline" size={16} color="#8B5CF6" />
-              <Text style={styles.competitionCardDetailText}>
-                {event.lieu || 'Lieu à confirmer'}
-              </Text>
-            </View>
-          </View>
-          <Pressable style={styles.competitionCardButton}>
-            <Text style={styles.competitionCardButtonText}>Voir Détails</Text>
-          </Pressable>
-        </View>
-      </Card>
-    );
-  };
-  
+
   
 
   const renderCoachCard = (coach, index) => {

@@ -8,6 +8,7 @@ interface Parent {
   nom: string;
   prenom: string;
   email: string;
+  avatar?: string;
 }
 
 export default function DrawerLayout() {
@@ -23,12 +24,18 @@ export default function DrawerLayout() {
         return;
       }
 
-      const parent = await getParentById();
-      setUser({
-        nom: parent.nom,
-        prenom: parent.prenom,
-        email: parent.email,
-      });
+    const parent = await getParentById();
+    const avatar =
+      typeof parent.avatar === 'string'
+        ? (parent.avatar.startsWith('data:') ? parent.avatar : `data:image/jpeg;base64,${parent.avatar}`)
+        : undefined;
+
+    setUser({
+      nom: parent.nom,
+      prenom: parent.prenom,
+      email: parent.email,
+      avatar: avatar,
+    });
       console.log("👤 Parent chargé dans DrawerLayout:", parent);
     } catch (error) {
       console.error('❌ Erreur récupération parent drawer:', error);
