@@ -91,7 +91,7 @@ export default function ParentDashboardScreen() {
   const [competitions, setCompetitions] = useState<Competition[]>([]);
   const [visibleMenuId, setVisibleMenuId] = useState<number | null>(null);
   const today = new Date().getDay();
-  const [weekSessions, setWeekSessions] = useState<{ [key: string]: string }>({});
+const [weekSessions, setWeekSessions] = useState<{ [day: string]: string[] }>({});
 
   // Nouvel useEffect pour récupérer les notifications depuis l'API
 
@@ -321,13 +321,23 @@ useEffect(() => {
   const fetchWeekSessionsFromCalendar = async () => {
     if (!parent?.id) return;
 
+    const weekMap: { [key: number]: string } = {
+      1: 'Lun',
+      2: 'Mar',
+      3: 'Mer',
+      4: 'Jeu',
+      5: 'Ven',
+      6: 'Sam',
+      0: 'Dim',
+    };
+
     try {
       const res = await API.get(`/sessions/calendar`, {
         params: { parentId: parent.id }
       });
 
       const allSessions = res.data || [];
-
+console.log("📦 Toutes les sessions reçues :", allSessions);
       const today = new Date();
       const startOfWeek = new Date(today);
       startOfWeek.setDate(today.getDate() - today.getDay() + 1); // Monday
@@ -336,15 +346,22 @@ useEffect(() => {
 
       const filtered: { [key: string]: string[] } = {};
 
-      allSessions.forEach((s: any) => {
-        const sessionDate = new Date(s.dateTime);
-        if (sessionDate >= startOfWeek && sessionDate <= endOfWeek) {
-          const day = sessionDate.toLocaleDateString('fr-FR', { weekday: 'short' });
-          if (!filtered[day]) filtered[day] = [];
-          filtered[day].push(s.activity);
-        }
-      });
+allSessions.forEach((s: any) => {
+  console.log("🧪 Session brute:", s);
 
+  const sessionDate = new Date(s.start); // ← utilise "start" au lieu de "dateTime"
+  const activityName = s.activite?.nom || s.title || 'Activité inconnue';
+  const adherentName = s.adherent?.prenom || s.adherent || 'Adhérent inconnu';
+
+  if (sessionDate >= startOfWeek && sessionDate <= endOfWeek) {
+    const day = weekMap[sessionDate.getDay()];
+    if (!filtered[day]) filtered[day] = [];
+    filtered[day].push(`${activityName} — ${adherentName}`);
+  }
+});
+
+
+      console.log("📅 Sessions filtrées pour la semaine:", filtered); // ✅ put it here
       setWeekSessions(filtered);
     } catch (e) {
       console.error('❌ Erreur lors du filtrage des sessions du calendrier:', e);
@@ -356,62 +373,36 @@ useEffect(() => {
 
 
 interface WeekPlanProps {
-  weekSessions?: { [day: string]: string }; // e.g. { Lun: 'Football', Mar: 'Repos' }
+  weekSessions?: { [day: string]: string[] };
 }
 
-
 const WeekPlan: React.FC<WeekPlanProps> = ({ weekSessions }) => {
-  const days = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'];
-
-  // Fake data fallback
-  const fallback = {
-    Lun: 'Football',
-    Mar: 'Basket',
-    Mer: 'Natation',
-    Jeu: 'Repos',
-    Ven: 'Tennis',
-    Sam: 'Gym',
-    Dim: 'Repos',
-  };
-
-  const sessions = weekSessions ?? fallback;
+  const days = ['Lun','Mar','Mer','Jeu','Ven','Sam','Dim'];
+  const sessionsMap = weekSessions || {};
 
   return (
     <View style={styles.weekPlanContainer}>
       <Text style={styles.weekPlanTitle}>📅 Planning de la semaine</Text>
-
-      {/* Header row */}
       <View style={styles.tableRow}>
-        {days.map((day, idx) => (
-          <View
-            key={idx}
-            style={[
-              styles.tableCell,
-              idx === (today === 0 ? 6 : today - 1) && { backgroundColor: '#E0F2FE' }, // Highlight today
-            ]}
-          >
-            <Text style={styles.dayName}>{day}</Text>
-          </View>
-        ))}
-      </View>
-
-      {/* Session row */}
-      <View style={styles.tableRow}>
-        {days.map((day, idx) => (
-          <View key={idx} style={styles.tableCell}>
-            {Array.isArray(sessions[day])
-              ? sessions[day].map((s: string, i: number) => (
-                  <Text key={i} style={styles.sessionText}>{s}</Text>
+        {days.map(d => (
+          <View key={d} style={styles.tableCell}>
+            <Text style={styles.dayName}>{d}</Text>
+            <ScrollView style={{ maxHeight: 80 }} showsVerticalScrollIndicator={false}>
+              {(sessionsMap[d] || []).length === 0 ? (
+                <Text style={{ fontSize: 11, color: '#9CA3AF', textAlign: 'center' }}>—</Text>
+              ) : (
+                sessionsMap[d].map((entry, i) => (
+                  <Text key={i} style={styles.sessionText}>{entry}</Text>
                 ))
-              : <Text style={styles.sessionText}>{sessions[day] || '—'}</Text>
-            }
+              )}
+            </ScrollView>
           </View>
+
         ))}
       </View>
     </View>
   );
 };
-
 
   return (
     <View style={styles.container}>
@@ -511,7 +502,7 @@ const WeekPlan: React.FC<WeekPlanProps> = ({ weekSessions }) => {
           </View>
         </View>
 
-<WeekPlan weekSessions={weekSessions} />
+        <WeekPlan weekSessions={weekSessions} />
 
        {/* Quick links */}
         <View style={styles.quickLinksContainer}>
@@ -572,69 +563,22 @@ const WeekPlan: React.FC<WeekPlanProps> = ({ weekSessions }) => {
 }
 
 const styles = StyleSheet.create({
-
-weekPlanContainer: {
-  marginHorizontal: 20,
-  marginBottom: 20,
-  backgroundColor: '#F3F4F6',
-  borderRadius: 20,
-  padding: 16,
-  borderWidth: 1,
-  borderColor: '#D1D5DB',
-},
-weekPlanTitle: {
-  fontSize: 18,
-  fontWeight: 'bold',
-  color: '#1F2937',
-  marginBottom: 12,
-  textAlign: 'center',
-},
-tableRow: {
-  flexDirection: 'row',
-  justifyContent: 'space-between',
-  alignItems: 'center',
-  marginBottom: 8,
-},
-tableCell: {
-  flex: 1,
-  alignItems: 'center',
-  justifyContent: 'center',
-  paddingVertical: 10,
-  marginHorizontal: 2,
-  backgroundColor: '#FFFFFF',
-  borderRadius: 10,
-  borderWidth: 1,
-  borderColor: '#E5E7EB',
-  minHeight: 40,
-},
-dayName: {
-  fontSize: 14,
-  fontWeight: '600',
-  color: '#4B5563',
-},
-sessionText: {
-  fontSize: 13,
-  color: '#10B981',
-  fontWeight: '600',
-},
-
-  // Core Layout - More refined base
   container: {
     flex: 1,
-    backgroundColor: '#F9F7FF', // Lighter, more airy background
+    backgroundColor: '#F9F7FF',
   },
   backgroundPattern: {
     position: 'absolute',
     width: '100%',
     height: '100%',
-    opacity: 0.02, // More subtle pattern
+    opacity: 0.02,
   },
   scrollContent: {
     paddingTop: 10,
-    paddingBottom: 280, // More space at bottom for comfortable scrolling
+    paddingBottom: 280,
   },
-  
-  // Header Section - More elegant & modern
+
+  // Header
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -643,24 +587,23 @@ sessionText: {
     marginBottom: 36,
     height: 64,
   },
-  
   headerLeft: {
     flexDirection: 'row',
     alignItems: 'center',
-  },
-  appName: {
-    fontSize: 22,
-    fontWeight: '800',
-    color: '#5D3FD3', // Richer purple
-    marginLeft: 12,
-    letterSpacing: 0.6,
   },
   iconButton: {
     padding: 10,
     borderRadius: 14,
   },
+  appName: {
+    fontSize: 22,
+    fontWeight: '800',
+    color: '#5D3FD3',
+    marginLeft: 12,
+    letterSpacing: 0.6,
+  },
 
-  // Notification System - More polished
+  // Notifications
   notificationButton: {
     padding: 10,
     backgroundColor: '#F0EBFF',
@@ -682,7 +625,7 @@ sessionText: {
     position: 'absolute',
     top: -6,
     right: -6,
-    backgroundColor: '#FF3B30', // More vibrant red
+    backgroundColor: '#FF3B30',
     width: 22,
     height: 22,
     borderRadius: 11,
@@ -697,37 +640,35 @@ sessionText: {
     fontWeight: 'bold',
   },
   notificationDropdown: {
-  backgroundColor: 'white',
-  paddingVertical: 10,
-  paddingHorizontal: 16,
-  borderRadius: 12,
-  shadowColor: '#000',
-  shadowOffset: { width: 0, height: 6 },
-  shadowOpacity: 0.1,
-  shadowRadius: 8,
-  elevation: 10,
-  marginTop: 70,     // 👈 Appears below the bell
-  marginRight: 25,   // 👈 Aligns from the right
-  width: 260,
-},
-notificationItemRow: {
-  flexDirection: 'row',
-  alignItems: 'center',
-  paddingVertical: 6,
-},
-notificationItemText: {
-  fontSize: 14,
-  color: '#1F2937',
-},
+    backgroundColor: 'white',
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 10,
+    marginTop: 70,
+    marginRight: 25,
+    width: 260,
+  },
+  notificationItemRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 6,
+  },
+  notificationItemText: {
+    fontSize: 14,
+    color: '#1F2937',
+  },
+  separator: {
+    height: 1,
+    backgroundColor: '#E5E7EB',
+    marginVertical: 6,
+  },
 
-separator: {
-  height: 1,
-  backgroundColor: '#E5E7EB',
-  marginVertical: 6,
-},
-
-
-  // Parent Info Card - Premium glass-like design
+  // Parent Card
   parentInfoCard: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -764,15 +705,15 @@ separator: {
     borderWidth: 3,
     borderColor: '#FFFFFF',
   },
-  parentInitials: {
-    color: '#fff',
-    fontSize: 26,
-    fontWeight: '800',
-  },
   avatarImage: {
     width: 66,
     height: 66,
     borderRadius: 33,
+  },
+  parentInitials: {
+    color: '#fff',
+    fontSize: 26,
+    fontWeight: '800',
   },
   parentInfo: {
     flex: 1,
@@ -790,40 +731,88 @@ separator: {
     lineHeight: 24,
   },
 
-  // Quick Links - Modern tile style
- quickLinksContainer: {
-  flexDirection: 'row',
-  flexWrap: 'wrap',
-  justifyContent: 'space-between',
-  paddingHorizontal: 20,
-  marginBottom: 30,
-},
+  // Week Plan
+  weekPlanContainer: {
+    marginHorizontal: 20,
+    marginBottom: 20,
+    backgroundColor: '#F3F4F6',
+    borderRadius: 20,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: '#D1D5DB',
+  },
+  weekPlanTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#1F2937',
+    marginBottom: 12,
+    textAlign: 'center',
+  },
+  tableRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 8,
+  },
+  tableCell: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'flex-start',
+    paddingVertical: 6,
+    marginHorizontal: 2,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    minHeight: 60,
+    maxWidth: 50,
+  },
+  dayName: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#4B5563',
+  },
+  sessionText: {
+    fontSize: 11,
+    color: '#10B981',
+    fontWeight: '600',
+    textAlign: 'center',
+  },
 
+  // Quick Links
+  quickLinksContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    marginBottom: 30,
+  },
   quickLink: {
-  width: '23%', // 4 items per row with some margin
-  alignItems: 'center',
-  marginBottom: 24,
-},
- quickLinkIcon: {
-  width: 60,
-  height: 60,
-  borderRadius: 20,
-  justifyContent: 'center',
-  alignItems: 'center',
-  marginBottom: 8,
-  shadowColor: '#5D3FD3',
-  shadowOffset: { width: 0, height: 2 },
-  shadowOpacity: 0.1,
-  shadowRadius: 4,
-  elevation: 3,
-},
-quickLinkText: {
-  fontSize: 13,
-  fontWeight: '500',
-  color: '#1F2937',
-  textAlign: 'center',
-},
-  // Bottom Navigation - Floating style
+    width: '23%',
+    alignItems: 'center',
+    marginBottom: 24,
+  },
+  quickLinkIcon: {
+    width: 60,
+    height: 60,
+    borderRadius: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 8,
+    shadowColor: '#5D3FD3',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  quickLinkText: {
+    fontSize: 13,
+    fontWeight: '500',
+    color: '#1F2937',
+    textAlign: 'center',
+  },
+
+  // Bottom Navigation
   bottomNav: {
     position: 'absolute',
     bottom: 20,
@@ -838,12 +827,12 @@ quickLinkText: {
     borderWidth: 1,
     borderColor: '#EBE5FF',
     paddingBottom: 12,
+    paddingTop: 12,
     shadowColor: '#5D3FD3',
     shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.16,
     shadowRadius: 16,
     elevation: 12,
-    paddingTop: 12,
   },
   navItem: {
     alignItems: 'center',
@@ -851,12 +840,10 @@ quickLinkText: {
     width: 64,
     height: 64,
   },
-  
   navText: {
     color: '#5D3FD3',
     fontSize: 13,
     marginTop: 6,
     fontWeight: '600',
   },
-
 });
