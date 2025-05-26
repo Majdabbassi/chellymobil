@@ -90,6 +90,8 @@ export default function ParentDashboardScreen() {
   const navigation = useNavigation();
   const [competitions, setCompetitions] = useState<Competition[]>([]);
   const [visibleMenuId, setVisibleMenuId] = useState<number | null>(null);
+  const today = new Date().getDay();
+  const [weekSessions, setWeekSessions] = useState<{ [key: string]: string }>({});
 
   // Nouvel useEffect pour récupérer les notifications depuis l'API
 
@@ -314,6 +316,103 @@ const adherentsMapped = await Promise.all(
     fetchParent();
   }, []);
   
+
+useEffect(() => {
+  const fetchWeekSessionsFromCalendar = async () => {
+    if (!parent?.id) return;
+
+    try {
+      const res = await API.get(`/sessions/calendar`, {
+        params: { parentId: parent.id }
+      });
+
+      const allSessions = res.data || [];
+
+      const today = new Date();
+      const startOfWeek = new Date(today);
+      startOfWeek.setDate(today.getDate() - today.getDay() + 1); // Monday
+      const endOfWeek = new Date(startOfWeek);
+      endOfWeek.setDate(startOfWeek.getDate() + 6); // Sunday
+
+      const filtered: { [key: string]: string[] } = {};
+
+      allSessions.forEach((s: any) => {
+        const sessionDate = new Date(s.dateTime);
+        if (sessionDate >= startOfWeek && sessionDate <= endOfWeek) {
+          const day = sessionDate.toLocaleDateString('fr-FR', { weekday: 'short' });
+          if (!filtered[day]) filtered[day] = [];
+          filtered[day].push(s.activity);
+        }
+      });
+
+      setWeekSessions(filtered);
+    } catch (e) {
+      console.error('❌ Erreur lors du filtrage des sessions du calendrier:', e);
+    }
+  };
+
+  fetchWeekSessionsFromCalendar();
+}, [parent]);
+
+
+interface WeekPlanProps {
+  weekSessions?: { [day: string]: string }; // e.g. { Lun: 'Football', Mar: 'Repos' }
+}
+
+
+const WeekPlan: React.FC<WeekPlanProps> = ({ weekSessions }) => {
+  const days = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'];
+
+  // Fake data fallback
+  const fallback = {
+    Lun: 'Football',
+    Mar: 'Basket',
+    Mer: 'Natation',
+    Jeu: 'Repos',
+    Ven: 'Tennis',
+    Sam: 'Gym',
+    Dim: 'Repos',
+  };
+
+  const sessions = weekSessions ?? fallback;
+
+  return (
+    <View style={styles.weekPlanContainer}>
+      <Text style={styles.weekPlanTitle}>📅 Planning de la semaine</Text>
+
+      {/* Header row */}
+      <View style={styles.tableRow}>
+        {days.map((day, idx) => (
+          <View
+            key={idx}
+            style={[
+              styles.tableCell,
+              idx === (today === 0 ? 6 : today - 1) && { backgroundColor: '#E0F2FE' }, // Highlight today
+            ]}
+          >
+            <Text style={styles.dayName}>{day}</Text>
+          </View>
+        ))}
+      </View>
+
+      {/* Session row */}
+      <View style={styles.tableRow}>
+        {days.map((day, idx) => (
+          <View key={idx} style={styles.tableCell}>
+            {Array.isArray(sessions[day])
+              ? sessions[day].map((s: string, i: number) => (
+                  <Text key={i} style={styles.sessionText}>{s}</Text>
+                ))
+              : <Text style={styles.sessionText}>{sessions[day] || '—'}</Text>
+            }
+          </View>
+        ))}
+      </View>
+    </View>
+  );
+};
+
+
   return (
     <View style={styles.container}>
       {/* Background Pattern */}
@@ -411,7 +510,9 @@ const adherentsMapped = await Promise.all(
             )}
           </View>
         </View>
-       
+
+<WeekPlan weekSessions={weekSessions} />
+
        {/* Quick links */}
         <View style={styles.quickLinksContainer}>
           {[
@@ -469,7 +570,54 @@ const adherentsMapped = await Promise.all(
     </View>
   );
 }
+
 const styles = StyleSheet.create({
+
+weekPlanContainer: {
+  marginHorizontal: 20,
+  marginBottom: 20,
+  backgroundColor: '#F3F4F6',
+  borderRadius: 20,
+  padding: 16,
+  borderWidth: 1,
+  borderColor: '#D1D5DB',
+},
+weekPlanTitle: {
+  fontSize: 18,
+  fontWeight: 'bold',
+  color: '#1F2937',
+  marginBottom: 12,
+  textAlign: 'center',
+},
+tableRow: {
+  flexDirection: 'row',
+  justifyContent: 'space-between',
+  alignItems: 'center',
+  marginBottom: 8,
+},
+tableCell: {
+  flex: 1,
+  alignItems: 'center',
+  justifyContent: 'center',
+  paddingVertical: 10,
+  marginHorizontal: 2,
+  backgroundColor: '#FFFFFF',
+  borderRadius: 10,
+  borderWidth: 1,
+  borderColor: '#E5E7EB',
+  minHeight: 40,
+},
+dayName: {
+  fontSize: 14,
+  fontWeight: '600',
+  color: '#4B5563',
+},
+sessionText: {
+  fontSize: 13,
+  color: '#10B981',
+  fontWeight: '600',
+},
+
   // Core Layout - More refined base
   container: {
     flex: 1,
@@ -495,6 +643,7 @@ const styles = StyleSheet.create({
     marginBottom: 36,
     height: 64,
   },
+  
   headerLeft: {
     flexDirection: 'row',
     alignItems: 'center',

@@ -1,13 +1,11 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { 
   View, 
   Text, 
   StyleSheet, 
   TouchableOpacity, 
-  ScrollView, 
   ActivityIndicator, 
   FlatList, 
-  Alert,
   Animated,
   Dimensions,
   StatusBar,
@@ -23,8 +21,7 @@ import { NotificationDTO } from './NotificationsScreen';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
 
-const { width, height } = Dimensions.get('window');
-const BASE_URL = 'http://192.168.100.16:8080/api/sessions';
+const BASE_URL = 'http://192.168.227.138:8080/api/sessions';
 
 // Interfaces
 interface Adherent {
@@ -247,28 +244,8 @@ export default function CalendarScreen() {
     fetchAdminNotifications();
   }, []);
 
-  useEffect(() => {
-    if (parentData && parentData.adherents && parentData.adherents.length > 0) {
-      const firstAdherent = parentData.adherents[0];
-      setCurrentAdherent(firstAdherent);
-      loadSessions(currentMonth, currentYear, firstAdherent.id);
-    }
-  }, [parentData]);
-
-  useEffect(() => {
-    if (parentData && currentAdherent) {
-      loadSessions(currentMonth, currentYear);
-    }
-  }, [currentAdherent]);
-
-  // Helper Functions
-  const formatISODate = (dateStr: string | Date) => {
-    if (!dateStr) return '';
-    const date = typeof dateStr === 'string' ? new Date(dateStr) : dateStr;
-    return date.toISOString().split('T')[0];
-  };
-
-  const loadSessions = async (month: number, year: number, adherentIdOverride?: number) => {
+    const loadSessions = useCallback( 
+    async (month: number, year: number, adherentIdOverride?: number) => {
     if (!parentData || (!currentAdherent && !adherentIdOverride)) return;
 
     const adherentId = adherentIdOverride || currentAdherent.id;
@@ -313,7 +290,37 @@ export default function CalendarScreen() {
     } finally {
       setLoading(false);
     }
+  }, [parentData, currentAdherent]);
+
+// 1️⃣ When parentData arrives, load *all* sessions:
+useEffect(() => {
+  if (parentData) {
+    loadSessions(currentMonth, currentYear);
+  }
+}, [parentData, loadSessions]);
+
+// 2️⃣ When you manually pick an adherent, load only their sessions:
+useEffect(() => {
+  if (currentAdherent) {
+    loadSessions(currentMonth, currentYear, currentAdherent.id);
+  }
+}, [currentAdherent, loadSessions]);
+
+
+  useEffect(() => {
+    if (parentData && currentAdherent) {
+      loadSessions(currentMonth, currentYear);
+    }
+  }, [currentAdherent]);
+
+  // Helper Functions
+  const formatISODate = (dateStr: string | Date) => {
+    if (!dateStr) return '';
+    const date = typeof dateStr === 'string' ? new Date(dateStr) : dateStr;
+    return date.toISOString().split('T')[0];
   };
+
+
 
   const changeAdherent = (adherent: Adherent) => {
     setCurrentAdherent(adherent);
@@ -403,24 +410,6 @@ export default function CalendarScreen() {
     return "barbell-outline";
   };
 
-  const CompetitionCard = ({ comp }: { comp: Competition }) => {
-    const isWin = comp.resultat?.toLowerCase() === "win";
-    return (
-      <FadeInView style={styles.competitionCard}>
-        <LinearGradient
-          colors={isWin ? ['#10B981', '#059669'] : ['#EF4444', '#DC2626']}
-          style={styles.competitionGradient}
-        >
-          <Text style={styles.competitionName}>{comp.nom}</Text>
-          <Text style={styles.competitionDate}>{formatDate(comp.date)}</Text>
-          <Text style={styles.competitionResult}>
-            {isWin ? "🏆 Gagnée" : "😔 Perdue"} • {(comp.winningPercentage || 0).toFixed(0)}%
-          </Text>
-          <Text style={styles.competitionDescription}>{comp.description}</Text>
-        </LinearGradient>
-      </FadeInView>
-    );
-  };
 
   // Loading Screen
   if (loading && Object.keys(sessions).length === 0) {
@@ -447,7 +436,7 @@ export default function CalendarScreen() {
           <Text style={styles.errorText}>{error}</Text>
           <TouchableOpacity 
             style={styles.retryButton} 
-            onPress={() => loadSessions(currentMonth, currentYear)}
+            onPress={() => loadSessions(currentMonth, currentYear, currentAdherent?.id)}
           >
             <Text style={styles.retryButtonText}>✨ Réessayer</Text>
           </TouchableOpacity>
