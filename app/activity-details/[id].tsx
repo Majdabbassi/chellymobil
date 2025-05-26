@@ -20,7 +20,7 @@ import { Modal, FlatList, Pressable } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 
 const { width, height } = Dimensions.get('window');
-const API_BASE_URL = Constants?.expoConfig?.extra?.apiUrl ?? 'http://192.168.100.16:8080';
+const API_BASE_URL = Constants?.expoConfig?.extra?.apiUrl ?? 'http://192.168.227.138:8080';
 
 export default function ActivityDetailsScreen() {
   const { id } = useLocalSearchParams();
@@ -360,11 +360,11 @@ export default function ActivityDetailsScreen() {
                         setModalVisible(false);
                         if (selectedPaymentType === 'FULL') {
                           router.push({
-                            pathname: '/paymentscreen',
+                            pathname: '/PaymentSelectionScreen',
                             params: {
-                              activityId: activity.id.toString(),
                               adherentId: item.id.toString(),
                               adherentName: `${item.prenom} ${item.nom}`,
+                              activityId: activity.id.toString(),
                               activityName: activity.nom,
                               amount: activity.prix?.toString() ?? '---',
                               type: 'FULL',
@@ -511,11 +511,13 @@ export default function ActivityDetailsScreen() {
                     onPress={() => {
                       setSessionDetailModalVisible(false);
                       router.push({
-                        pathname: '/paymentscreen',
+                        pathname: '/PaymentSelectionScreen',
                         params: {
                           adherentId: selectedAdherent.id.toString(),
                           adherentName: `${selectedAdherent.prenom} ${selectedAdherent.nom}`,
                           sessionId: selectedSession.id.toString(),
+                          sessionDate: selectedSession.start,
+                          activityId: activity.id.toString(),
                           activityName: activity.nom,
                           amount: activity.prixParSeance?.toString() ?? '---',
                           type: 'SESSION',
@@ -536,6 +538,7 @@ export default function ActivityDetailsScreen() {
             </Animated.View>
           </View>
         </Modal>
+
       </ScrollView>
     </>
   );

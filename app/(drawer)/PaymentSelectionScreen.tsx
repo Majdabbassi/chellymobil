@@ -14,7 +14,7 @@ import {
 import API from '@/services/api'; // ✅ Utilisation de l'API centralisée
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
-import { router, useNavigation } from 'expo-router';
+import { router, useLocalSearchParams, useNavigation } from 'expo-router';
 
 import Constants from 'expo-constants';
 import { getAdherentsOfCurrentParent, getActivitiesByAdherent, getCurrentParentInfo } from '@/services/adherent';
@@ -26,7 +26,7 @@ import AwesomeAlert from 'react-native-awesome-alerts';
 import axios from 'axios';
 
 // Get API base URL from environment variables or fallback to a default
-const API_BASE_URL = Constants?.expoConfig?.extra?.apiUrl ?? 'http://192.168.100.16:8080';
+const API_BASE_URL = Constants?.expoConfig?.extra?.apiUrl ?? 'http://192.168.227.138:8080';
 
 export default function PaymentSelectionScreen() {
   const months = ['Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin', 'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre'];
@@ -47,6 +47,7 @@ export default function PaymentSelectionScreen() {
   const [sessionsMap, setSessionsMap] = useState<Record<string, any>>({});
   const [paidMonths, setPaidMonths] = useState<string[]>([]);
   const navigation = useNavigation();
+  const params = useLocalSearchParams();
   const [parentInfo, setParentInfo] = useState({
     firstName: '',
     lastName: '',
@@ -77,11 +78,11 @@ export default function PaymentSelectionScreen() {
     }
   }, [selectedActivities, paymentPeriodType, availableActivities]);
 
-  useEffect(() => {
-    if (selectedAdherents) {
-      handleAdherentSelect(selectedAdherents);
-    }
-  }, [paymentPeriodType]);
+useEffect(() => {
+  setSelectedActivities([]); // clear previous selection on period change
+  setSelectedMonths([]);
+  setSelectedDate('');
+}, [paymentPeriodType]);
 
   useEffect(() => {
   const loadAllSessions = async () => {
@@ -137,6 +138,36 @@ export default function PaymentSelectionScreen() {
 
     getToken();
   }, [handleApiError]);
+useEffect(() => {
+  if (!token) return;
+  const fetchAllActivities = async () => {
+    try {
+      setLoading(true);
+      const activities = await getAllActivities(); // 🔁 Call your centralized API method
+
+      const formatted = activities.map(activity => ({
+        id: activity.id ?? 0,
+        nom: activity.nom ?? '',
+        prix: activity.prix ?? 0,
+        description: activity.description ?? '',
+      }));
+
+      setAvailableActivities(formatted);
+
+      const prices = formatted.reduce<Record<string, number>>((dict, act) => {
+        dict[act.nom] = act.prix;
+        return dict;
+      }, {});
+      setActivityPrices(prices);
+    } catch (err) {
+      handleApiError(err, 'Erreur lors du chargement des activités');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  fetchAllActivities();
+}, [token, handleApiError]);
 
   // Load initial data when token is available
   useEffect(() => {
@@ -240,41 +271,10 @@ useEffect(() => {
     }
   }, [token]);
 
-  const handleAdherentSelect = useCallback(async (adherents: AdherentDTO[]) => {
-  setSelectedAdherents(adherents);
-  setSelectedActivities([]);
-  setAvailableActivities([]);
-  setLoading(true);
-
-  try {
-    const activities = await getAllActivities();
-
-    const formattedActivities = activities.map((activity: ActivityDTO) => ({
-      id: activity.id ?? 0,
-      nom: activity.nom ?? '',
-      prix: activity.prix ?? 0,
-      description: activity.description ?? '',
-    }));
-
-
-
-
-    setAvailableActivities(formattedActivities);
-
-    const pricesDict = formattedActivities.reduce<Record<string, number>>((dict, activity) => {
-      if (activity && activity.nom) {
-        dict[activity.nom] = activity.prix;
-      }
-      return dict;
-    }, {});
-
-    setActivityPrices(pricesDict);
-  } catch (err) {
-    handleApiError(err, 'Erreur lors du chargement des activités');
-  } finally {
-    setLoading(false);
-  }
-}, [handleApiError]);
+    const handleAdherentSelect = useCallback((adherents: AdherentDTO[]) => {
+      setSelectedAdherents(adherents);
+      setSelectedActivities([]);
+    }, []);
 
   const calculateTotal = useCallback(() => {
     let total = 0;
@@ -469,6 +469,101 @@ const handleKonnectPayment = useCallback(async () => {
   selectedSessionDetails,
   parentInfo,
   handleApiError
+]);
+
+useEffect(() => {
+  const { type } = params;
+
+  if (type === 'SESSION') {
+    console.log('🔁 [Type Detection] Type de paiement détecté = SESSION');
+    setPaymentPeriodType('perSession');
+  } else if (type === 'FULL') {
+    console.log('🔁 [Type Detection] Type de paiement détecté = FULL');
+    setPaymentPeriodType('perMonth');
+  }
+}, [params]);
+
+
+const [hasHandledParams, setHasHandledParams] = useState(false);
+
+useEffect(() => {
+  const {
+    adherentId,
+    activityId,
+    sessionId,
+    sessionDate,
+  } = params;
+
+  console.log('👀 [Handle Params] Check conditions');
+  console.log('➡️ adherentId:', adherentId);
+  console.log('➡️ activityId:', activityId);
+  console.log('➡️ sessionId:', sessionId);
+  console.log('➡️ sessionDate:', sessionDate);
+  console.log('➡️ paymentPeriodType:', paymentPeriodType);
+  console.log('➡️ adherents.length:', adherents.length);
+  console.log('➡️ availableActivities.length:', availableActivities.length);
+  console.log('➡️ sessionsMap keys:', Object.keys(sessionsMap));
+
+  if (
+    hasHandledParams ||
+    !adherentId ||
+    !activityId ||
+    adherents.length === 0 ||
+    availableActivities.length === 0 ||
+    (paymentPeriodType === 'perSession' && Object.keys(sessionsMap).length === 0)
+  ) {
+    console.log('⛔ Conditions non remplies ou déjà traitées.');
+    return;
+  }
+
+  console.log('✅ [Handle Params] Toutes les conditions sont remplies. Traitement en cours...');
+
+  // ✅ Adhérent
+  const adherent = adherents.find(a => a.id === Number(adherentId));
+  if (adherent) {
+    console.log('👤 Adhérent trouvé et sélectionné:', adherent);
+    setSelectedAdherents([adherent]);
+  }
+
+  // ✅ Activité
+  const activity = availableActivities.find(a => a.id === Number(activityId));
+  if (activity) {
+    console.log('🎯 Activité trouvée et sélectionnée:', activity);
+    setSelectedActivities([activity.nom]);
+  }
+
+  // ✅ Session
+if (paymentPeriodType === 'perSession' && sessionDate && sessionId) {
+  const normalizedDate = sessionDate.split('T')[0]; // ✅ extract only '2025-05-28'
+  console.log('🔍 Recherche session pour date:', normalizedDate);
+  console.log('🗓️ sessionsMap[normalizedDate]:', sessionsMap[normalizedDate]);
+
+  if (sessionsMap[normalizedDate]) {
+    const foundSession = sessionsMap[normalizedDate].find(
+      s => s.id === Number(sessionId)
+    );
+    if (foundSession) {
+      console.log('📅 Séance trouvée et sélectionnée:', foundSession);
+      setSelectedDate(normalizedDate);
+      setSelectedSessionDetails(foundSession);
+    } else {
+      console.warn('❌ Aucune séance trouvée avec cet ID dans cette date.');
+    }
+  } else {
+    console.warn('❌ Aucun tableau de séances pour cette date');
+  }
+}
+
+
+  setHasHandledParams(true);
+  console.log('✅ Fin du traitement des paramètres initiaux.');
+}, [
+  adherents,
+  availableActivities,
+  sessionsMap,
+  paymentPeriodType,
+  hasHandledParams,
+  params,
 ]);
 
 

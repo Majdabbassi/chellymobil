@@ -19,7 +19,10 @@ import { LinearGradient } from 'expo-linear-gradient';
 
 const { width, height } = Dimensions.get('window');
 const CARD_WIDTH = (width - 48) / 2;
-
+export function formatImage(base64: string | undefined | null): string {
+  if (!base64) return 'https://via.placeholder.com/80';
+  return base64.startsWith('data:image') ? base64 : `data:image/png;base64,${base64}`;
+}
 export default function ActivitiesScreen() {
   const [activities, setActivities] = useState<ActivityDTO[]>([]);
   const [loading, setLoading] = useState(true);
@@ -125,11 +128,7 @@ export default function ActivitiesScreen() {
           >
             <View style={styles.imageContainer}>
               <Image
-                source={{
-                  uri: item.imageBase64
-                    ? `data:image/png;base64,${item.imageBase64}`
-                    : 'https://via.placeholder.com/80',
-                }}
+                source={{ uri: formatImage(item.imageBase64) }}
                 style={styles.activityImage}
               />
               <View style={styles.imageOverlay} />
@@ -142,9 +141,6 @@ export default function ActivitiesScreen() {
               <View style={styles.cardAccent} />
             </View>
             
-            <View style={styles.cardIcon}>
-              <Ionicons name="arrow-forward" size={16} color="#fff" />
-            </View>
           </LinearGradient>
         </TouchableOpacity>
       </Animated.View>
