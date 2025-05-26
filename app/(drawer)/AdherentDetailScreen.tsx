@@ -178,16 +178,6 @@ const filtered = data.performances.filter(p => {
   </View>
 </View>
 
-
-      <View style={styles.section}>
-        <View style={styles.card}>
-          <Text style={styles.sectionTitle}>Prochaines séances</Text>
-          {data.sessions.length ? data.sessions.map((s, i) => (
-            <InfoRow key={i} label={s.activity} value={`${s.date} - ${s.location}`} />
-          )) : <Text style={styles.empty}>Aucune séance à venir</Text>}
-        </View>
-      </View>
-
       <View style={styles.section}>
         <View style={styles.card}>
           <Text style={styles.sectionTitle}>blessure</Text>
@@ -205,6 +195,7 @@ const filtered = data.performances.filter(p => {
           )) : <Text style={styles.empty}>Aucune séance à venir</Text>}
         </View>
       </View>
+      
     </ScrollView>
   );
 }

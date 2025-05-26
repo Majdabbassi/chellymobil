@@ -1,17 +1,32 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, ActivityIndicator, FlatList, Alert } from 'react-native';
+import React, { useState, useEffect, useRef } from 'react';
+import { 
+  View, 
+  Text, 
+  StyleSheet, 
+  TouchableOpacity, 
+  ScrollView, 
+  ActivityIndicator, 
+  FlatList, 
+  Alert,
+  Animated,
+  Dimensions,
+  StatusBar,
+  Platform
+} from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useNavigation, useRouter } from 'expo-router';
+import { useNavigation } from 'expo-router';
 import { Calendar } from 'react-native-calendars';
 import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import API from '@/services/api';
+import { NotificationDTO } from './NotificationsScreen';
+import { LinearGradient } from 'expo-linear-gradient';
+import { BlurView } from 'expo-blur';
 
-// URL de base à configurer depuis l'environnement ou les paramètres de l'application
-
+const { width, height } = Dimensions.get('window');
 const BASE_URL = 'http://192.168.100.16:8080/api/sessions';
 
-// Interfaces améliorées
+// Interfaces
 interface Adherent {
   id: number;
   nom: string;
@@ -35,20 +50,8 @@ interface Session {
   time: string;
   location: string;
   date: string;
-  activite?: string; // Champ alternatif d'API
-  lieu?: string;     // Champ alternatif d'API
-}
-
-interface Information {
-  id: number;
-  titre: string;
-  description: string;
-  type: string;
-  dateDebut: string;
-  dateFin: string;
-  lieu: string;
-  audience: string;
-  time?: string;
+  activite?: string;
+  lieu?: string;
 }
 
 interface CalendarSessions {
@@ -65,7 +68,82 @@ interface MarkedDates {
   };
 }
 
-// Fonction pour récupérer les séances depuis l'API avec logging amélioré
+// Animation Component
+const FadeInView = ({ children, delay = 0, style = {} }) => {
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const translateY = useRef(new Animated.Value(30)).current;
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      Animated.parallel([
+        Animated.timing(fadeAnim, {
+          toValue: 1,
+          duration: 800,
+          useNativeDriver: true,
+        }),
+        Animated.timing(translateY, {
+          toValue: 0,
+          duration: 800,
+          useNativeDriver: true,
+        }),
+      ]).start();
+    }, delay);
+
+    return () => clearTimeout(timer);
+  }, [fadeAnim, translateY, delay]);
+
+  return (
+    <Animated.View
+      style={[
+        {
+          opacity: fadeAnim,
+          transform: [{ translateY: translateY }],
+        },
+        style,
+      ]}
+    >
+      {children}
+    </Animated.View>
+  );
+};
+
+// Pulse Animation Component
+const PulseView = ({ children, style = {} }) => {
+  const pulseAnim = useRef(new Animated.Value(1)).current;
+
+  useEffect(() => {
+    const pulse = () => {
+      Animated.sequence([
+        Animated.timing(pulseAnim, {
+          toValue: 1.05,
+          duration: 1000,
+          useNativeDriver: true,
+        }),
+        Animated.timing(pulseAnim, {
+          toValue: 1,
+          duration: 1000,
+          useNativeDriver: true,
+        }),
+      ]).start(() => pulse());
+    };
+    pulse();
+  }, [pulseAnim]);
+
+  return (
+    <Animated.View
+      style={[
+        {
+          transform: [{ scale: pulseAnim }],
+        },
+        style,
+      ]}
+    >
+      {children}
+    </Animated.View>
+  );
+};
+
+// API Functions
 const getCalendarSessions = async (params: {
   coachId?: number;
   adherentId?: number;
@@ -85,8 +163,6 @@ const getCalendarSessions = async (params: {
       throw new Error('Aucun token disponible');
     }
     
-    console.log('API URL:', `${BASE_URL}/calendar`);
-    
     const response = await axios.get(`${BASE_URL}/calendar`, {
       params,
       headers: {
@@ -94,327 +170,170 @@ const getCalendarSessions = async (params: {
       },
     });
     
-    console.log('Sessions API response:', JSON.stringify(response.data));
     return response.data;
   } catch (err) {
-    const error = err as any;
-    console.error('Erreur API avec token :', error);
-    console.error('Status:', error.response?.status);
-    console.error('Data:', JSON.stringify(error.response?.data));
+    console.error('Erreur API:', err);
     throw err;
   }
 };
 
 export default function CalendarScreen() {
+  // States
   const [selected, setSelected] = useState('');
   const [sessions, setSessions] = useState<CalendarSessions>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [parentData, setParentData] = useState<{ id: number, adherents: Adherent[] } | null>(null);
   const [currentAdherent, setCurrentAdherent] = useState<Adherent | null>(null);
-  const [informations, setInformations] = useState<Information[]>([]);
   const [competitions, setCompetitions] = useState<Competition[]>([]);
+  const [adminNotifications, setAdminNotifications] = useState<NotificationDTO[]>([]);
+  
   const navigation = useNavigation();
-  // Obtenir le mois et l'année actuels pour la requête initiale
+  const scrollY = useRef(new Animated.Value(0)).current;
+  
+  // Date calculations
   const currentDate = new Date();
   const currentMonth = currentDate.getMonth() + 1;
   const currentYear = currentDate.getFullYear();
 
-  // Fonction pour formater les dates dans un format cohérent (YYYY-MM-DD)
+  // Effects
+  useEffect(() => {
+    const fetchCompetitions = async (parentId: number) => {
+      try {
+        const res = await API.get(`/competitions/competitions/parent/${parentId}`);
+        setCompetitions(res.data);
+      } catch (err) {
+        console.error("Erreur compétitions:", err);
+      }
+    };
+
+    const loadParentData = async () => {
+      try {
+        const response = await API.get('/parents/me');
+        const parentData = response.data;
+
+        await AsyncStorage.setItem('parent', JSON.stringify(parentData));
+        setParentData(parentData);
+
+        if (parentData?.id) {
+          await fetchCompetitions(parentData.id);
+        }
+      } catch (err) {
+        console.error("Erreur lors du chargement du parent:", err);
+        setError("Impossible de charger les données du parent");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadParentData();
+  }, []);
+
+  useEffect(() => {
+    const fetchAdminNotifications = async () => {
+      try {
+        const res = await API.get('/notifications/me');
+        const onlyAdmin = res.data
+          .filter((n: NotificationDTO) => !n.type || n.type === 'admin')
+          .sort((a: NotificationDTO, b: NotificationDTO) =>
+            new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+          );
+        setAdminNotifications(onlyAdmin.slice(0, 5));
+      } catch (e) {
+        console.error("Erreur chargement notifs admin :", e);
+      }
+    };
+
+    fetchAdminNotifications();
+  }, []);
+
+  useEffect(() => {
+    if (parentData && parentData.adherents && parentData.adherents.length > 0) {
+      const firstAdherent = parentData.adherents[0];
+      setCurrentAdherent(firstAdherent);
+      loadSessions(currentMonth, currentYear, firstAdherent.id);
+    }
+  }, [parentData]);
+
+  useEffect(() => {
+    if (parentData && currentAdherent) {
+      loadSessions(currentMonth, currentYear);
+    }
+  }, [currentAdherent]);
+
+  // Helper Functions
   const formatISODate = (dateStr: string | Date) => {
     if (!dateStr) return '';
     const date = typeof dateStr === 'string' ? new Date(dateStr) : dateStr;
     return date.toISOString().split('T')[0];
   };
 
-const fetchCompetitions = async (parentId: number) => {
-  try {
-    console.log('Fetching competitions for parentId:', parentId);
-
-    const res = await API.get(`/competitions/competitions/parent/${parentId}`); // ✅ BaseURL et headers déjà gérés
-    console.log('Competitions fetched:', JSON.stringify(res.data));
-    
-    setCompetitions(res.data);
-  } catch (err: any) {
-    console.error("Erreur compétitions:", err);
-    console.error('Status:', err.response?.status);
-    console.error('Data:', JSON.stringify(err.response?.data));
-  }
-};
-
-  
-const getInformationsByParent = async (parentId: number) => {
-  try {
-    console.log('Fetching informations for parentId:', parentId);
-    
-    const response = await API.get(`/informations/by-parent/${parentId}`); // ✅ IP et token gérés automatiquement
-    
-    console.log('Informations fetched:', JSON.stringify(response.data));
-    return response.data;
-  } catch (err: any) {
-    console.error('Erreur lors du chargement des informations :', err);
-    console.error('Status:', err.response?.status);
-    console.error('Data:', JSON.stringify(err.response?.data));
-    return [];
-  }
-};
- 
-  // Charger les données du parent et ses adhérents
-useEffect(() => {
-  const fetchCompetitions = async (parentId: number) => {
-    try {
-      const token = await AsyncStorage.getItem('token');
-      if (!token) {
-        console.error('Aucun token disponible pour les compétitions');
-        return;
-      }
-
-      console.log('Fetching competitions for parentId:', parentId);
-      const res = await axios.get(`http://192.168.100.16:8080/api/competitions/competitions/parent/${parentId}`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-
-      console.log('Competitions fetched:', JSON.stringify(res.data));
-      setCompetitions(res.data);
-    } catch (err) {
-      const error = err as any;
-      console.error("Erreur compétitions:", error);
-      console.error('Status:', error.response?.status);
-      console.error('Data:', JSON.stringify(error.response?.data));
-    }
-  };
-
-  const getInformationsByParent = async (parentId: number) => {
-    try {
-      const token = await AsyncStorage.getItem('token');
-      if (!token) {
-        console.error('Aucun token disponible pour les informations');
-        return [];
-      }
-
-      console.log('Fetching informations for parentId:', parentId);
-      const response = await axios.get(`http://192.168.100.16:8080/api/informations/by-parent/${parentId}`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
-
-      console.log('Informations fetched:', JSON.stringify(response.data));
-      return response.data;
-    } catch (err) {
-      const error = err as any;
-      console.error('Erreur lors du chargement des informations :', error);
-      console.error('Status:', error.response?.status);
-      console.error('Data:', JSON.stringify(error.response?.data));
-      return [];
-    }
-  };
-
-  const loadParentData = async () => {
-    try {
-      const response = await API.get('/parents/me'); // ✅ Token + baseURL gérés automatiquement
-      const parentData = response.data;
-
-      await AsyncStorage.setItem('parent', JSON.stringify(parentData));
-      setParentData(parentData);
-
-      console.log('📦 parentData depuis l\'API:', parentData);
-      console.log('👧 Liste des adherents:', parentData.adherents);
-
-      if (parentData?.id) {
-        await fetchCompetitions(parentData.id);
-        const infos = await getInformationsByParent(parentData.id);
-        setInformations(infos); // si tu as un setInformations
-      }
-    } catch (err) {
-      console.error("Erreur lors du chargement du parent:", err);
-      setError("Impossible de charger les données du parent");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  loadParentData();
-}, []);
-
-  // Charger les données du parent et ses adhérents
-useEffect(() => {
-  const loadParentData = async () => {
-    try {
-      const token = await AsyncStorage.getItem('token');
-      if (!token) {
-        setError("Token non disponible");
-        setLoading(false);
-        return;
-      }
-
-      // 👉 Appel API pour récupérer le parent et ses adhérents
-      const response = await axios.get('http://192.168.100.16:8080/api/parents/me', {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
-
-      const parentData = response.data;
-
-      // 📝 Stockage dans AsyncStorage pour usage ultérieur
-      await AsyncStorage.setItem('parent', JSON.stringify(parentData));
-      setParentData(parentData);
-
-      console.log('📦 parentData depuis l\'API:', parentData);
-      console.log('👧 Liste des adherents:', parentData.adherents);
-
-      // ✅ Chargement compétitions
-      if (parentData?.id) {
-        await fetchCompetitions(parentData.id);
-      }
-
-      // ✅ Chargement du premier adhérent et ses séances
-      if (parentData.adherents && parentData.adherents.length > 0) {
-        const firstAdherent = parentData.adherents[0];
-        setCurrentAdherent(firstAdherent);
-        await loadSessions(currentMonth, currentYear, firstAdherent.id);
-      }
-
-    } catch (err) {
-      console.error("Erreur lors du chargement des données du parent:", err);
-      setError("Impossible de charger les données du parent");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  loadParentData();
-}, []);
-
-
-  // Charger les informations quand les données du parent sont disponibles
-  useEffect(() => {
-    if (parentData && parentData.id) {
-      console.log('Chargement des informations pour le parent ID:', parentData.id);
-      getInformationsByParent(parentData.id).then((infos) => {
-        console.log(`${infos.length} informations chargées`);
-        setInformations(infos);
-      });
-    }
-  }, [parentData]);
-
-  // Effet pour charger les séances quand l'adhérent est sélectionné
-  useEffect(() => {
-    if (parentData && currentAdherent) {
-      console.log(`Chargement des séances pour l'adhérent ${currentAdherent.prenom} ${currentAdherent.nom} (ID: ${currentAdherent.id})`);
-      loadSessions(currentMonth, currentYear);
-    }
-    
-  }, [parentData, currentAdherent]);
-
   const loadSessions = async (month: number, year: number, adherentIdOverride?: number) => {
     if (!parentData || (!currentAdherent && !adherentIdOverride)) return;
-  
+
     const adherentId = adherentIdOverride || currentAdherent.id;
-  
+
     try {
       setLoading(true);
-      console.log(`Chargement des séances pour le mois ${month}/${year}`);
-      
-      const params = {
-        parentId: parentData.id,
-        adherentId: currentAdherent.id,
-        month,
-        year
-      };
-      
-      console.log('Paramètres de requête:', JSON.stringify(params));
       const data = await getCalendarSessions({
         parentId: parentData.id,
         adherentId,
         month,
         year
       });
-           
-      // Formater les données pour correspondre à notre structure
+
       const formattedSessions: CalendarSessions = {};
-     
+
       if (Array.isArray(data)) {
-        console.log(`${data.length} séances récupérées de l'API`);
-        
-        data.forEach((session, index) => {
+        data.forEach((session) => {
           if (session && session.date) {
             const dateKey = formatISODate(session.date);
-            console.log(`Session ${index+1} pour la date ${dateKey}:`, JSON.stringify(session));
-           
+            
             if (!formattedSessions[dateKey]) {
               formattedSessions[dateKey] = [];
             }
-           
+
             formattedSessions[dateKey].push({
               id: session.id || 0,
               adherent: session.adherent || 'Non spécifié',
-              // Utiliser les champs appropriés de l'API
               activity: session.activite || session.activity || 'Activité non spécifiée',
               time: session.time || 'Heure non spécifiée',
               location: session.lieu || session.location || 'Lieu non spécifié',
               date: session.date
             });
-          } else {
-            console.warn(`Session ${index+1} sans date valide:`, JSON.stringify(session));
           }
         });
-        
-        console.log('Sessions formatées:', JSON.stringify(formattedSessions));
-      } else {
-        console.warn('Réponse API inattendue (pas un tableau):', JSON.stringify(data));
       }
-     
+
       setSessions(formattedSessions);
       setError(null);
     } catch (err) {
-      const error = err as any;
-      console.error("Erreur lors du chargement des séances:", error);
-      console.error('Status:', error.response?.status);
-      console.error('Data:', JSON.stringify(error.response?.data));
+      console.error("Erreur lors du chargement des séances:", err);
       setError("Impossible de charger les séances. Veuillez réessayer.");
-      
-      // Afficher une alerte avec l'erreur pour le débogage
-      Alert.alert(
-        "Erreur de chargement",
-        `Impossible de charger les séances: ${error.message}`
-      );
     } finally {
       setLoading(false);
     }
   };
 
-  // Changer l'adhérent sélectionné
   const changeAdherent = (adherent: Adherent) => {
-    console.log(`Changement d'adhérent pour ${adherent.prenom} ${adherent.nom} (ID: ${adherent.id})`);
     setCurrentAdherent(adherent);
-    setSessions({}); // Réinitialiser les séances lors du changement d'adhérent
-    setSelected(''); // Réinitialiser le jour sélectionné
-    loadSessions(currentMonth, currentYear); // Recharger les séances pour le nouvel adhérent
+    setSessions({});
+    setSelected('');
+    loadSessions(currentMonth, currentYear);
   };
 
   const onDayPress = (day: { dateString: string }) => {
-    console.log('Jour sélectionné:', day.dateString);
     setSelected(day.dateString);
   };
 
   const getSessionsForDay = (day: string) => {
-    const sessions_for_day = sessions[day] || [];
-    // Log pour débogage
-    if (sessions_for_day.length > 0) {
-      console.log(`${sessions_for_day.length} séances trouvées pour le ${day}`);
-    }
-    return sessions_for_day;
+    return sessions[day] || [];
   };
 
-  // Pour gérer le changement de mois dans le calendrier
   const onMonthChange = (month: { month: number; year: number }) => {
-    console.log(`Changement de mois: ${month.month}/${month.year}`);
     loadSessions(month.month, month.year);
   };
 
-  // Formater la date pour l'affichage
   const formatDate = (dateString: string) => {
     if (!dateString) return '';
     try {
@@ -422,387 +341,432 @@ useEffect(() => {
       const options: Intl.DateTimeFormatOptions = { weekday: 'long', day: 'numeric', month: 'long' };
       return date.toLocaleDateString('fr-FR', options);
     } catch (e) {
-      console.error('Erreur de formatage de date:', dateString, e);
       return dateString;
     }
   };
 
-  // Obtenir la date d'aujourd'hui et de demain au format YYYY-MM-DD
   const today = new Date().toISOString().split('T')[0];
   const tomorrow = formatISODate(new Date(Date.now() + 86400000));
 
-  // Préparer les dates marquées pour le calendrier
   const getMarkedDates = (): MarkedDates => {
     const markedDates: MarkedDates = {};
     const now = new Date();
- 
+
     if (selected) {
       markedDates[selected] = {
         selected: true,
-        selectedColor: '#6D28D9',
+        selectedColor: '#8B5CF6',
         selectedTextColor: '#fff',
       };
     }
- 
+
     Object.entries(sessions).forEach(([date, sessionList]) => {
       if (date === selected) return;
- 
+
       const sessionDate = new Date(date);
       const isPast = sessionDate < now && date !== selected;
- 
-      let dotColor = '#8B5CF6'; // default
- 
+
+      let dotColor = '#A855F7';
+
       if (isPast) {
-        dotColor = '#EF4444'; // red for past sessions
+        dotColor = '#EF4444';
       } else {
         if (sessionList.some(session => isActivityOfType(session, 'information'))) {
-          dotColor = '#0E7490'; // blue for information
+          dotColor = '#06B6D4';
         } else if (sessionList.some(session => isActivityOfType(session, 'football'))) {
-          dotColor = '#22C55E'; // green
+          dotColor = '#10B981';
         } else if (sessionList.some(session => isActivityOfType(session, 'basket'))) {
-          dotColor = '#F59E0B'; // orange
+          dotColor = '#F59E0B';
         }
       }
- 
+
       markedDates[date] = {
         marked: true,
         dotColor,
       };
     });
- 
+
     return markedDates;
   };
- 
-  // Détermine dynamiquement si une activité est d'un certain type
+
   const isActivityOfType = (session: Session, type: string) => {
-    // Vérifier dans les deux champs possibles (activity ou activite)
     const activityField = session.activity || session.activite || '';
     return typeof activityField === 'string' && activityField.toLowerCase().includes(type);
   };
 
-  // Récupérer les informations à venir
-  const getUpcomingInformations = () => {
-    return informations
-      .sort((a, b) => new Date(a.dateDebut).getTime() - new Date(b.dateDebut).getTime())
-      .slice(0, 5);
-  };
-  
-  // Fonction pour obtenir les événements récents
-  const getRecentEvents = (daysBack: number = 7) => {
-    const now = new Date();
-    const pastDate = new Date(now.getTime() - daysBack * 24 * 60 * 60 * 1000);
-    const result = [];
-   
-    for (const date of Object.keys(sessions)) {
-      const sessionDate = new Date(date);
-     
-      if (sessionDate < now && sessionDate > pastDate) {
-        for (const session of sessions[date]) {
-          result.push({ date, session });
-        }
-      }
-    }
-   
-    return result;
-  };
-  
-  const CompetitionCard = ({ comp }: { comp: Competition }) => {
-    const isWin = comp.resultat?.toLowerCase() === "win";
-    return (
-      <View style={{
-        borderWidth: 2,
-        borderColor: isWin ? "#22C55E" : "#EF4444",
-        backgroundColor: "#FFFFFF",
-        padding: 12,
-        marginBottom: 12,
-        borderRadius: 10,
-      }}>
-        <Text style={{ fontWeight: 'bold', fontSize: 16 }}>{comp.nom}</Text>
-        <Text style={{ color: "#6B7280", marginBottom: 6 }}>{formatDate(comp.date)}</Text>
-        <Text style={{ color: isWin ? "#22C55E" : "#EF4444", fontWeight: '600' }}>
-          {isWin ? "Gagnée" : "Perdue"} • {(comp.winningPercentage || 0).toFixed(0)}%
-        </Text>
-        <Text style={{ fontStyle: 'italic', color: '#374151' }}>{comp.description}</Text>
-      </View>
-    );
-  };
-  
-  // Déterminer l'icône à utiliser en fonction du type d'activité
   const getActivityIcon = (session: Session) => {
     if (isActivityOfType(session, 'information')) return "information-circle-outline";
     if (isActivityOfType(session, 'football')) return "football-outline";
     if (isActivityOfType(session, 'basket')) return "basketball-outline";
     if (isActivityOfType(session, 'natation')) return "water-outline";
     if (isActivityOfType(session, 'tennis')) return "tennisball-outline";
-    // Icône par défaut
     return "barbell-outline";
   };
 
-  // Debug info
-  console.log('Current adherent:', JSON.stringify(currentAdherent));
-  console.log('Today:', today, 'Sessions for today:', getSessionsForDay(today).length);
-  console.log('Tomorrow:', tomorrow, 'Sessions for tomorrow:', getSessionsForDay(tomorrow).length);
-  
-  // Rendre un indicateur de chargement si aucune donnée n'est disponible
+  const CompetitionCard = ({ comp }: { comp: Competition }) => {
+    const isWin = comp.resultat?.toLowerCase() === "win";
+    return (
+      <FadeInView style={styles.competitionCard}>
+        <LinearGradient
+          colors={isWin ? ['#10B981', '#059669'] : ['#EF4444', '#DC2626']}
+          style={styles.competitionGradient}
+        >
+          <Text style={styles.competitionName}>{comp.nom}</Text>
+          <Text style={styles.competitionDate}>{formatDate(comp.date)}</Text>
+          <Text style={styles.competitionResult}>
+            {isWin ? "🏆 Gagnée" : "😔 Perdue"} • {(comp.winningPercentage || 0).toFixed(0)}%
+          </Text>
+          <Text style={styles.competitionDescription}>{comp.description}</Text>
+        </LinearGradient>
+      </FadeInView>
+    );
+  };
+
+  // Loading Screen
   if (loading && Object.keys(sessions).length === 0) {
     return (
-      <View style={[styles.container, styles.centerContent]}>
-        <ActivityIndicator size="large" color="#6D28D9" />
-        <Text style={styles.loadingText}>Chargement des séances...</Text>
-      </View>
+      <LinearGradient colors={['#8B5CF6', '#A855F7', '#C084FC']} style={styles.loadingContainer}>
+        <StatusBar barStyle="light-content" backgroundColor="#8B5CF6" />
+        <PulseView>
+          <View style={styles.loadingCard}>
+            <ActivityIndicator size="large" color="#8B5CF6" />
+            <Text style={styles.loadingText}>Chargement magique...</Text>
+          </View>
+        </PulseView>
+      </LinearGradient>
     );
   }
 
-  // Afficher un message d'erreur si le chargement a échoué
+  // Error Screen
   if (error && Object.keys(sessions).length === 0) {
     return (
-      <View style={[styles.container, styles.centerContent]}>
-        <Ionicons name="alert-circle-outline" size={48} color="#EF4444" />
-        <Text style={styles.errorText}>{error}</Text>
-        <TouchableOpacity style={styles.retryButton} onPress={() => loadSessions(currentMonth, currentYear)}>
-          <Text style={styles.retryButtonText}>Réessayer</Text>
-        </TouchableOpacity>
-      </View>
+      <LinearGradient colors={['#8B5CF6', '#A855F7']} style={styles.errorContainer}>
+        <StatusBar barStyle="light-content" backgroundColor="#8B5CF6" />
+        <FadeInView style={styles.errorCard}>
+          <Ionicons name="alert-circle-outline" size={64} color="#FFFFFF" />
+          <Text style={styles.errorText}>{error}</Text>
+          <TouchableOpacity 
+            style={styles.retryButton} 
+            onPress={() => loadSessions(currentMonth, currentYear)}
+          >
+            <Text style={styles.retryButtonText}>✨ Réessayer</Text>
+          </TouchableOpacity>
+        </FadeInView>
+      </LinearGradient>
     );
   }
 
   return (
     <View style={styles.container}>
-      {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.toggleDrawer()}>
-          <Ionicons name="menu" size={24} color="#6D28D9" />
-        </TouchableOpacity>
-        <Text style={styles.title}>    Planning des Activités</Text>
-      </View>
-
-      <ScrollView showsVerticalScrollIndicator={false}>
-        {/* Sélecteur d'adhérent */}
-        {parentData && parentData.adherents && parentData.adherents.length > 0 && (
-          <View style={styles.adherentSelectorContainer}>
-            <Text style={styles.adherentSelectorTitle}>Sélectionner un adhérent</Text>
-            <FlatList
-              data={parentData.adherents}
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              renderItem={({ item }) => (
-                <TouchableOpacity
-                  style={[
-                    styles.adherentButton,
-                    currentAdherent?.id === item.id && styles.adherentButtonActive
-                  ]}
-                  onPress={() => changeAdherent(item)}
-                >
-                  <Ionicons
-                    name="person"
-                    size={18}
-                    color={currentAdherent?.id === item.id ? '#FFFFFF' : '#6D28D9'}
-                  />
-                  <Text
-                    style={[
-                      styles.adherentButtonText,
-                      currentAdherent?.id === item.id && styles.adherentButtonTextActive
-                    ]}
-                  >
-                    {item.prenom} {item.nom}
-                  </Text>
-                </TouchableOpacity>
-              )}
-              keyExtractor={(item) => item.id.toString()}
-              contentContainerStyle={styles.adherentList}
-            />
+      <StatusBar barStyle="light-content" backgroundColor="#8B5CF6" />
+      
+      {/* Animated Header */}
+      <LinearGradient colors={['#8B5CF6', '#A855F7', '#C084FC']} style={styles.header}>
+        <Animated.View 
+          style={[
+            styles.headerContent,
+            {
+              transform: [{
+                translateY: scrollY.interpolate({
+                  inputRange: [0, 100],
+                  outputRange: [0, -20],
+                  extrapolate: 'clamp',
+                }),
+              }],
+            },
+          ]}
+        >
+          <TouchableOpacity 
+            style={styles.menuButton}
+            onPress={() => navigation.toggleDrawer()}
+          >
+            <Ionicons name="menu" size={28} color="#FFFFFF" />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>✨ Planning Magique</Text>
+          <View style={styles.headerDecorations}>
+            <View style={styles.headerDot} />
+            <View style={[styles.headerDot, { backgroundColor: '#C084FC' }]} />
+            <View style={[styles.headerDot, { backgroundColor: '#DDD6FE' }]} />
           </View>
+        </Animated.View>
+      </LinearGradient>
+
+      <Animated.ScrollView
+        showsVerticalScrollIndicator={false}
+        onScroll={Animated.event(
+          [{ nativeEvent: { contentOffset: { y: scrollY } } }],
+          { useNativeDriver: false }
+        )}
+        scrollEventThrottle={16}
+        style={styles.scrollView}
+      >
+        {/* Adherent Selector */}
+        {parentData && parentData.adherents && parentData.adherents.length > 0 && (
+          <FadeInView delay={200} style={styles.adherentSelectorContainer}>
+            <BlurView intensity={20} style={styles.adherentBlurCard}>
+              <Text style={styles.adherentSelectorTitle}>👥 Sélectionner un adhérent</Text>
+              <FlatList
+                data={parentData.adherents}
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                renderItem={({ item, index }) => (
+                  <FadeInView delay={300 + (index * 100)}>
+                    <TouchableOpacity
+                      style={[
+                        styles.adherentButton,
+                        currentAdherent?.id === item.id && styles.adherentButtonActive
+                      ]}
+                      onPress={() => changeAdherent(item)}
+                    >
+                      <LinearGradient
+                        colors={
+                          currentAdherent?.id === item.id
+                            ? ['#8B5CF6', '#A855F7']
+                            : ['#F3F4F6', '#E5E7EB']
+                        }
+                        style={styles.adherentGradient}
+                      >
+                        <Ionicons
+                          name="person"
+                          size={20}
+                          color={currentAdherent?.id === item.id ? '#FFFFFF' : '#8B5CF6'}
+                        />
+                        <Text
+                          style={[
+                            styles.adherentButtonText,
+                            currentAdherent?.id === item.id && styles.adherentButtonTextActive
+                          ]}
+                        >
+                          {item.prenom} {item.nom}
+                        </Text>
+                      </LinearGradient>
+                    </TouchableOpacity>
+                  </FadeInView>
+                )}
+                keyExtractor={(item) => item.id.toString()}
+                contentContainerStyle={styles.adherentList}
+              />
+            </BlurView>
+          </FadeInView>
         )}
 
-        {/* Séances du jour et demain */}
-        <View style={styles.upcomingContainer}>
-          <View style={styles.todayHeader}>
-            <Ionicons name="today-outline" size={22} color="#6D28D9" />
-            <Text style={styles.todayTitle}>Aujourd'hui</Text>
-          </View>
-         
-          {getSessionsForDay(today).length > 0 ? (
-            getSessionsForDay(today).map((session, index) => (
-              <View key={`today-${index}`} style={styles.sessionCard}>
-                <View style={styles.sessionTime}>
-                  <Text style={styles.timeText}>{session.time}</Text>
-                </View>
-                <View style={styles.sessionDetails}>
-                  <Text style={styles.activityName}>{session.activity}</Text>
-                  <Text style={styles.adherentText}>{session.adherent}</Text>
-                  <View style={styles.locationRow}>
-                    <Ionicons name="location-outline" size={14} color="#6B7280" />
-                    <Text style={styles.locationText}>{session.location}</Text>
-                  </View>
-                </View>
-              </View>
-            ))
-          ) : (
-            <Text style={styles.noSessionText}>Aucune séance aujourd'hui</Text>
-          )}
+        {/* Today & Tomorrow Sessions */}
+        <FadeInView delay={400} style={styles.upcomingContainer}>
+          <LinearGradient
+            colors={['#FFFFFF', '#FAF5FF']}
+            style={styles.upcomingCard}
+          >
+            {/* Today */}
+            <View style={styles.todaySection}>
+              <LinearGradient
+                colors={['#8B5CF6', '#A855F7']}
+                style={styles.todayHeader}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+              >
+                <Ionicons name="sunny" size={24} color="#FFFFFF" />
+                <Text style={styles.todayTitle}>Aujourd'hui</Text>
+              </LinearGradient>
 
-          <View style={styles.tomorrowHeader}>
-            <Ionicons name="calendar-outline" size={22} color="#8B5CF6" />
-            <Text style={styles.tomorrowTitle}>Demain</Text>
-          </View>
-         
-          {getSessionsForDay(tomorrow).length > 0 ? (
-            getSessionsForDay(tomorrow).map((session, index) => (
-              <View key={`tomorrow-${index}`} style={styles.sessionCard}>
-                <View style={styles.sessionTime}>
-                  <Text style={styles.timeText}>{session.time}</Text>
+              {getSessionsForDay(today).length > 0 ? (
+                getSessionsForDay(today).map((session, index) => (
+                  <FadeInView key={`today-${index}`} delay={500 + (index * 100)}>
+                    <View style={styles.modernSessionCard}>
+                      <LinearGradient
+                        colors={['#8B5CF6', '#A855F7']}
+                        style={styles.sessionTimeContainer}
+                      >
+                        <Text style={styles.sessionTimeText}>{session.time}</Text>
+                      </LinearGradient>
+                      <View style={styles.sessionInfo}>
+                        <Text style={styles.sessionActivity}>{session.activity}</Text>
+                        <Text style={styles.sessionAdherent}>👤 {session.adherent}</Text>
+                        <View style={styles.sessionLocationRow}>
+                          <Ionicons name="location" size={16} color="#8B5CF6" />
+                          <Text style={styles.sessionLocation}>{session.location}</Text>
+                        </View>
+                      </View>
+                      <View style={styles.sessionIcon}>
+                        <Ionicons name={getActivityIcon(session)} size={24} color="#8B5CF6" />
+                      </View>
+                    </View>
+                  </FadeInView>
+                ))
+              ) : (
+                <View style={styles.noSessionContainer}>
+                  <Text style={styles.noSessionText}>🌙 Aucune séance aujourd'hui</Text>
                 </View>
-                <View style={styles.sessionDetails}>
-                  <Text style={styles.activityName}>{session.activity}</Text>
-                  <Text style={styles.adherentText}>{session.adherent}</Text>
-                  <View style={styles.locationRow}>
-                    <Ionicons name="location-outline" size={14} color="#6B7280" />
-                    <Text style={styles.locationText}>{session.location}</Text>
-                  </View>
+              )}
+            </View>
+
+            {/* Tomorrow */}
+            <View style={styles.tomorrowSection}>
+              <LinearGradient
+                colors={['#A855F7', '#C084FC']}
+                style={styles.tomorrowHeader}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+              >
+                <Ionicons name="moon" size={24} color="#FFFFFF" />
+                <Text style={styles.tomorrowTitle}>Demain</Text>
+              </LinearGradient>
+
+              {getSessionsForDay(tomorrow).length > 0 ? (
+                getSessionsForDay(tomorrow).map((session, index) => (
+                  <FadeInView key={`tomorrow-${index}`} delay={600 + (index * 100)}>
+                    <View style={styles.modernSessionCard}>
+                      <LinearGradient
+                        colors={['#A855F7', '#C084FC']}
+                        style={styles.sessionTimeContainer}
+                      >
+                        <Text style={styles.sessionTimeText}>{session.time}</Text>
+                      </LinearGradient>
+                      <View style={styles.sessionInfo}>
+                        <Text style={styles.sessionActivity}>{session.activity}</Text>
+                        <Text style={styles.sessionAdherent}>👤 {session.adherent}</Text>
+                        <View style={styles.sessionLocationRow}>
+                          <Ionicons name="location" size={16} color="#A855F7" />
+                          <Text style={styles.sessionLocation}>{session.location}</Text>
+                        </View>
+                      </View>
+                      <View style={styles.sessionIcon}>
+                        <Ionicons name={getActivityIcon(session)} size={24} color="#A855F7" />
+                      </View>
+                    </View>
+                  </FadeInView>
+                ))
+              ) : (
+                <View style={styles.noSessionContainer}>
+                  <Text style={styles.noSessionText}>⭐ Aucune séance demain</Text>
                 </View>
-              </View>
-            ))
-          ) : (
-            <Text style={styles.noSessionText}>Aucune séance demain</Text>
-          )}
-        </View>
+              )}
+            </View>
+          </LinearGradient>
+        </FadeInView>
 
         {/* Calendar */}
-        <View style={styles.calendarContainer}>
-          <Text style={styles.calendarTitle}>
-            Calendrier des activités {currentAdherent && `de ${currentAdherent.prenom} ${currentAdherent.nom}`}
-          </Text>
-          <Calendar
-            onDayPress={onDayPress}
-            onMonthChange={onMonthChange}
-            markedDates={getMarkedDates()}
-            theme={styles.calendarTheme}
-          />
-        </View>
+        <FadeInView delay={600} style={styles.calendarContainer}>
+          <LinearGradient
+            colors={['#FFFFFF', '#FAF5FF']}
+            style={styles.calendarCard}
+          >
+            <View style={styles.calendarTitleContainer}>
+              <Ionicons name="calendar" size={28} color="#8B5CF6" />
+              <Text style={styles.calendarTitle}>
+                📅 Calendrier {currentAdherent && `de ${currentAdherent.prenom}`}
+              </Text>
+            </View>
+            <Calendar
+              onDayPress={onDayPress}
+              onMonthChange={onMonthChange}
+              markedDates={getMarkedDates()}
+              theme={styles.calendarTheme}
+              style={styles.calendar}
+            />
+          </LinearGradient>
+        </FadeInView>
 
         {/* Selected Day Info */}
         {selected && (
-          <View style={styles.selectedDayInfo}>
-            <View style={styles.selectedDayHeader}>
-              <Ionicons name="calendar" size={22} color="#6D28D9" />
-              <Text style={styles.selectedDayTitle}>{formatDate(selected)}</Text>
-            </View>
-           
-            {getSessionsForDay(selected).length > 0 ? (
-              getSessionsForDay(selected).map((session, index) => (
-                <View key={`selected-${index}`} style={styles.detailedSessionCard}>
-                  <View style={styles.sessionCardHeader}>
-                    <Text style={styles.sessionCardTime}>{session.time}</Text>
-                    <Text style={styles.sessionCardActivity}>{session.activity}</Text>
-                  </View>
-                  <View style={styles.sessionCardBody}>
-                    <View style={styles.sessionInfoRow}>
-                      <Ionicons name="person-outline" size={16} color="#6B7280" />
-                      <Text style={styles.sessionInfoText}>{session.adherent}</Text>
+          <FadeInView delay={700} style={styles.selectedDayContainer}>
+            <LinearGradient
+              colors={['#FFFFFF', '#FAF5FF']}
+              style={styles.selectedDayCard}
+            >
+              <LinearGradient
+                colors={['#8B5CF6', '#A855F7']}
+                style={styles.selectedDayHeader}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+              >
+                <Ionicons name="calendar-outline" size={24} color="#FFFFFF" />
+                <Text style={styles.selectedDayTitle}>{formatDate(selected)}</Text>
+              </LinearGradient>
+
+              {getSessionsForDay(selected).length > 0 ? (
+                getSessionsForDay(selected).map((session, index) => (
+                  <FadeInView key={`selected-${index}`} delay={800 + (index * 100)}>
+                    <View style={styles.detailedSessionCard}>
+                      <LinearGradient
+                        colors={['#8B5CF6', '#A855F7']}
+                        style={styles.detailedSessionHeader}
+                      >
+                        <Text style={styles.detailedSessionTime}>{session.time}</Text>
+                        <Text style={styles.detailedSessionActivity}>{session.activity}</Text>
+                      </LinearGradient>
+                      <View style={styles.detailedSessionBody}>
+                        <View style={styles.detailedSessionRow}>
+                          <Ionicons name="person" size={18} color="#8B5CF6" />
+                          <Text style={styles.detailedSessionText}>{session.adherent}</Text>
+                        </View>
+                        <View style={styles.detailedSessionRow}>
+                          <Ionicons name="location" size={18} color="#8B5CF6" />
+                          <Text style={styles.detailedSessionText}>{session.location}</Text>
+                        </View>
+                      </View>
+                      <View style={styles.detailedSessionIcon}>
+                        <Ionicons name={getActivityIcon(session)} size={32} color="#8B5CF6" />
+                      </View>
                     </View>
-                    <View style={styles.sessionInfoRow}>
-                      <Ionicons name="location-outline" size={16} color="#6B7280" />
-                      <Text style={styles.sessionInfoText}>{session.location}</Text>
-                    </View>
-                  </View>
+                  </FadeInView>
+                ))
+              ) : (
+                <View style={styles.noSelectedSessionContainer}>
+                  <Ionicons name="moon-outline" size={48} color="#C084FC" />
+                  <Text style={styles.noSelectedSessionText}>Aucune séance prévue ce jour</Text>
                 </View>
-              ))
-            ) : (
-              <View style={styles.noSessionCard}>
-                <Ionicons name="information-circle-outline" size={24} color="#9CA3AF" />
-                <Text style={styles.noSessionCardText}>Aucune séance prévue ce jour</Text>
-              </View>
-            )}
-          </View>
+              )}
+            </LinearGradient>
+          </FadeInView>
         )}
 
-        {/* Informations importantes */}
-        <View style={styles.remindersContainer}>
-          <View style={styles.reminderHeader}>
-            <Ionicons name="notifications-outline" size={24} color="#0E7490" />
-            <Text style={styles.reminderTitle}>Informations Importantes</Text>
-          </View>
-         
-          {informations.length > 0 && getUpcomingInformations().length > 0 ? (
-            getUpcomingInformations().map((info, index) => (
-              <View key={`info-${info.id}-${index}`} style={styles.reminderCard}>
-                <View style={styles.reminderIconContainer}>
-                  <Ionicons name="information-circle-outline" size={22} color="#fff" />
-                </View>
-                <View style={styles.reminderContent}>
-                  <Text style={styles.reminderDate}>
-                    {formatDate(info.dateDebut)} {info.time && `• ${info.time}`}
-                  </Text>
+        {/* Admin Notifications */}
+        <FadeInView delay={800} style={styles.notificationsContainer}>
+          <LinearGradient
+            colors={['#FFFFFF', '#FAF5FF']}
+            style={styles.notificationsCard}
+          >
+            <LinearGradient
+              colors={['#06B6D4', '#0891B2']}
+              style={styles.notificationsHeader}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+            >
+              <Ionicons name="megaphone" size={24} color="#FFFFFF" />
+              <Text style={styles.notificationsTitle}>📢 Annonces Administratives</Text>
+            </LinearGradient>
 
-                  <Text style={styles.reminderText}>{info.titre}</Text>
-
-                  <Text style={styles.reminderDescription}>{info.description}</Text>
-
-                  <Text style={styles.reminderDescription}>
-                    Type : {info.type}
-                  </Text>
-
-                  <Text style={styles.reminderDescription}>
-                    Audience : {info.audience}
-                  </Text>
-
-                  {info.lieu && (
-                    <View style={styles.locationRow}>
-                      <Ionicons name="location-outline" size={14} color="#6B7280" />
-                      <Text style={styles.locationText}>
-                        {info.lieu}
-                      </Text>
-                    </View>
-                  )}
-                </View>
-              </View>
-            ))
-          ) : (
-            <Text style={styles.noSessionText}>Aucune information importante à venir</Text>
-          )}
-         
-          {/* Affichage des compétitions passées */}
-          {competitions.filter(comp => new Date(comp.date) < new Date()).length > 0 && (
-            <View style={styles.pastEvents}>
-              <Text style={styles.pastEventsTitle}>Compétitions récentes</Text>
-
-              {competitions
-                .filter(comp => new Date(comp.date) < new Date())
-                .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
-                .slice(0, 5)
-                .map((comp) => {
-                  const isWin = comp.resultat?.toLowerCase() === 'win';
-                  return (
-                    <View
-                      key={`comp-${comp.id}`}
-                      style={[
-                        styles.reminderCard,
-                        styles.pastReminderCard,
-                        {
-                          borderLeftWidth: 5,
-                          borderLeftColor: isWin ? '#22C55E' : '#EF4444',
-                        },
-                      ]}
+            {adminNotifications.length > 0 ? (
+              adminNotifications.map((notif, index) => (
+                <FadeInView key={notif.id} delay={900 + (index * 100)}>
+                  <View style={styles.notificationCard}>
+                    <LinearGradient
+                      colors={['#06B6D4', '#0891B2']}
+                      style={styles.notificationIcon}
                     >
-                      <View style={[styles.reminderIconContainer, styles.pastIconContainer]}>
-                        <Ionicons name={isWin ? "trophy-outline" : "close-circle-outline"} size={22} color="#fff" />
-                      </View>
-                      <View style={styles.reminderContent}>
-                        <Text style={styles.pastReminderDate}>{formatDate(comp.date)}</Text>
-                        <Text style={[styles.pastReminderText, { fontWeight: 'bold' }]}>
-                          {comp.nom}
-                        </Text>
-                        <Text style={styles.pastReminderPerson}>
-                        {isWin ? 'Gagnée' : 'Perdue'} • {(comp.winningPercentage || 0).toFixed(0)}%
-                        </Text>
-                      </View>
+                      <Ionicons name="information" size={20} color="#FFFFFF" />
+                    </LinearGradient>
+                    <View style={styles.notificationContent}>
+                      <Text style={styles.notificationDate}>
+                        {new Date(notif.timestamp).toLocaleDateString('fr-FR')} • {new Date(notif.timestamp).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
+                      </Text>
+                      <Text style={styles.notificationTitle}>{notif.title}</Text>
+                      <Text style={styles.notificationMessage}>{notif.message}</Text>
                     </View>
-                  );
-                })}
-            </View>
-          )}
-        </View>
-      </ScrollView>
+                  </View>
+                </FadeInView>
+              ))
+            ) : (
+              <View style={styles.noNotificationsContainer}>
+                <Text style={styles.noNotificationsText}>🔇 Aucune annonce disponible</Text>
+              </View>
+            )}
+          </LinearGradient>
+        </FadeInView>
+
+        {/* Bottom Spacing */}
+        <View style={styles.bottomSpacing} />
+      </Animated.ScrollView>
     </View>
   );
 }
@@ -810,383 +774,553 @@ useEffect(() => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F9FAFB',
+    backgroundColor: '#F8F7FF',
   },
-  centerContent: {
+  
+  // Loading & Error States
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loadingCard: {
+    backgroundColor: 'rgba(255, 255, 255, 0.95)',
+    padding: 32,
+    borderRadius: 24,
+    alignItems: 'center',
+    shadowColor: '#8B5CF6',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.3,
+    shadowRadius: 16,
+    elevation: 8,
+  },
+  loadingText: {
+    marginTop: 16,
+    fontSize: 18,
+    color: '#8B5CF6',
+    fontWeight: '600',
+  },
+  errorContainer: {
+    flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
     padding: 20,
   },
-  loadingText: {
-    marginTop: 12,
-    fontSize: 16,
-    color: '#6D28D9',
-    fontWeight: '500',
+  errorCard: {
+    backgroundColor: 'rgba(255, 255, 255, 0.95)',
+    padding: 32,
+    borderRadius: 24,
+    alignItems: 'center',
+    shadowColor: '#8B5CF6',
+    shadowOffset: { width: 0, height: 8 },
+shadowOpacity: 0.3,
+  shadowRadius: 16,
+  elevation: 8,
   },
   errorText: {
-    marginTop: 12,
-    fontSize: 16,
-    color: '#EF4444',
-    fontWeight: '500',
+    marginTop: 16,
+    fontSize: 18,
+    color: '#FFFFFF',
+    fontWeight: '600',
     textAlign: 'center',
-    marginBottom: 16,
+    marginBottom: 20,
   },
   retryButton: {
-    backgroundColor: '#6D28D9',
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
     paddingHorizontal: 24,
     paddingVertical: 12,
-    borderRadius: 8,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.3)',
   },
   retryButtonText: {
     color: '#FFFFFF',
-    fontWeight: '600',
     fontSize: 16,
+    fontWeight: '600',
   },
+
+  // Header Styles
   header: {
+    paddingTop: Platform.OS === 'ios' ? 50 : StatusBar.currentHeight || 0,
+    paddingBottom: 20,
+    paddingHorizontal: 20,
+  },
+  headerContent: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 16,
-    paddingHorizontal: 20,
-    backgroundColor: '#F5F3FF',
-    borderBottomWidth: 1,
-    borderBottomColor: '#E5E7EB',
+    justifyContent: 'space-between',
   },
-  backButton: {
-    marginRight: 16,
+  menuButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
-  title: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: '#6D28D9',
+  headerTitle: {
+    fontSize: 22,
+    fontWeight: 'bold',
+    color: '#FFFFFF',
+    textAlign: 'center',
+    flex: 1,
   },
-  // Styles pour le sélecteur d'adhérent
-  adherentSelectorContainer: {
-    margin: 16,
-    marginBottom: 0,
-    padding: 16,
+  headerDecorations: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    width: 44,
+    justifyContent: 'flex-end',
+  },
+  headerDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
     backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
+    marginLeft: 4,
+    opacity: 0.7,
+  },
+
+  // Scroll View
+  scrollView: {
+    flex: 1,
+  },
+
+  // Adherent Selector
+  adherentSelectorContainer: {
+    marginHorizontal: 16,
+    marginTop: -10,
+    marginBottom: 16,
+  },
+  adherentBlurCard: {
+    borderRadius: 20,
+    overflow: 'hidden',
+    backgroundColor: 'rgba(255, 255, 255, 0.95)',
+    shadowColor: '#8B5CF6',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
+    elevation: 5,
   },
   adherentSelectorTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#4B5563',
-    marginBottom: 12,
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#1F2937',
+    textAlign: 'center',
+    paddingVertical: 16,
+    paddingHorizontal: 20,
   },
   adherentList: {
-    paddingVertical: 8,
+    paddingHorizontal: 16,
+    paddingBottom: 16,
   },
   adherentButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#F3F4F6',
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 20,
-    marginRight: 8,
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
+    marginRight: 12,
+    borderRadius: 16,
+    overflow: 'hidden',
+    shadowColor: '#8B5CF6',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 3,
   },
   adherentButtonActive: {
-    backgroundColor: '#6D28D9',
-    borderColor: '#6D28D9',
+    shadowOpacity: 0.3,
+  },
+  adherentGradient: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    minWidth: 120,
   },
   adherentButtonText: {
+    marginLeft: 8,
     fontSize: 14,
-    fontWeight: '500',
-    color: '#6D28D9',
-    marginLeft: 6,
+    fontWeight: '600',
+    color: '#374151',
   },
   adherentButtonTextActive: {
     color: '#FFFFFF',
   },
+
+  // Upcoming Sessions
   upcomingContainer: {
-    margin: 16,
-    padding: 16,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
+    marginHorizontal: 16,
+    marginBottom: 16,
+  },
+  upcomingCard: {
+    borderRadius: 20,
+    padding: 20,
+    shadowColor: '#8B5CF6',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
+    elevation: 5,
+  },
+  todaySection: {
+    marginBottom: 20,
   },
   todayHeader: {
     flexDirection: 'row',
     alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 12,
     marginBottom: 12,
   },
   todayTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#6D28D9',
     marginLeft: 8,
-  },
-  sessionCard: {
-    flexDirection: 'row',
-    backgroundColor: '#F3F4F6',
-    borderRadius: 8,
-    marginBottom: 10,
-    overflow: 'hidden',
-  },
-  sessionTime: {
-    width: 70,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#EDE9FE',
-    paddingVertical: 12,
-  },
-  timeText: {
     fontSize: 16,
-    fontWeight: '600',
-    color: '#6D28D9',
+    fontWeight: '700',
+    color: '#FFFFFF',
   },
-  sessionDetails: {
-    flex: 1,
-    padding: 12,
-  },
-  activityName: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#1F2937',
-    marginBottom: 4,
-  },
-  adherentText: {
-    fontSize: 14,
-    color: '#4B5563',
-    marginBottom: 4,
-  },
-  locationRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  locationText: {
-    fontSize: 13,
-    color: '#6B7280',
-    marginLeft: 4,
+  tomorrowSection: {
+    marginTop: 8,
   },
   tomorrowHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 12,
     marginBottom: 12,
   },
   tomorrowTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#8B5CF6',
     marginLeft: 8,
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+
+  // Modern Session Cards
+  modernSessionCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 12,
+    shadowColor: '#8B5CF6',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 3,
+    borderLeftWidth: 4,
+    borderLeftColor: '#8B5CF6',
+  },
+  sessionTimeContainer: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 12,
+    marginRight: 16,
+    minWidth: 70,
+    alignItems: 'center',
+  },
+  sessionTimeText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  sessionInfo: {
+    flex: 1,
+  },
+  sessionActivity: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#1F2937',
+    marginBottom: 4,
+  },
+  sessionAdherent: {
+    fontSize: 14,
+    color: '#6B7280',
+    marginBottom: 4,
+  },
+  sessionLocationRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  sessionLocation: {
+    marginLeft: 4,
+    fontSize: 14,
+    color: '#8B5CF6',
+    fontWeight: '500',
+  },
+  sessionIcon: {
+    marginLeft: 12,
+  },
+  noSessionContainer: {
+    alignItems: 'center',
+    paddingVertical: 20,
   },
   noSessionText: {
-    fontSize: 14,
+    fontSize: 16,
     color: '#9CA3AF',
     fontStyle: 'italic',
-    marginLeft: 8,
-    marginBottom: 10,
   },
+
+  // Calendar
   calendarContainer: {
-    margin: 16,
-    padding: 16,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
+    marginHorizontal: 16,
+    marginBottom: 16,
+  },
+  calendarCard: {
+    borderRadius: 20,
+    padding: 20,
+    shadowColor: '#8B5CF6',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
+    elevation: 5,
+  },
+  calendarTitleContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 16,
   },
   calendarTitle: {
+    marginLeft: 8,
     fontSize: 18,
     fontWeight: '700',
     color: '#1F2937',
-    marginBottom: 16,
+  },
+  calendar: {
+    borderRadius: 16,
+    overflow: 'hidden',
   },
   calendarTheme: {
     backgroundColor: '#FFFFFF',
     calendarBackground: '#FFFFFF',
-    textSectionTitleColor: '#6B7280',
-    selectedDayBackgroundColor: '#6D28D9',
+    textSectionTitleColor: '#8B5CF6',
+    selectedDayBackgroundColor: '#8B5CF6',
     selectedDayTextColor: '#FFFFFF',
-    todayTextColor: '#6D28D9',
+    todayTextColor: '#8B5CF6',
     dayTextColor: '#1F2937',
     textDisabledColor: '#D1D5DB',
     dotColor: '#8B5CF6',
     selectedDotColor: '#FFFFFF',
-    arrowColor: '#6D28D9',
+    arrowColor: '#8B5CF6',
     monthTextColor: '#1F2937',
+    indicatorColor: '#8B5CF6',
     textDayFontWeight: '500',
-    textMonthFontWeight: 'bold',
+    textMonthFontWeight: '700',
     textDayHeaderFontWeight: '600',
     textDayFontSize: 16,
     textMonthFontSize: 18,
     textDayHeaderFontSize: 14,
   },
-  selectedDayInfo: {
-    margin: 16,
-    padding: 16,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
+
+  // Selected Day
+  selectedDayContainer: {
+    marginHorizontal: 16,
+    marginBottom: 16,
+  },
+  selectedDayCard: {
+    borderRadius: 20,
+    overflow: 'hidden',
+    shadowColor: '#8B5CF6',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
+    elevation: 5,
   },
   selectedDayHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 16,
+    paddingHorizontal: 20,
+    paddingVertical: 16,
   },
   selectedDayTitle: {
+    marginLeft: 8,
     fontSize: 18,
     fontWeight: '700',
-    color: '#6D28D9',
-    marginLeft: 8,
+    color: '#FFFFFF',
     textTransform: 'capitalize',
   },
   detailedSessionCard: {
-    backgroundColor: '#F3F4F6',
-    borderRadius: 10,
-    marginBottom: 10,
-    overflow: 'hidden',
-  },
-  sessionCardHeader: {
-    backgroundColor: '#EDE9FE',
-    padding: 12,
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    marginHorizontal: 16,
+    marginVertical: 8,
+    borderRadius: 16,
+    overflow: 'hidden',
+    shadowColor: '#8B5CF6',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 3,
   },
-  sessionCardTime: {
+  detailedSessionHeader: {
+    paddingHorizontal: 16,
+    paddingVertical: 16,
+    justifyContent: 'center',
+    minWidth: 100,
+  },
+  detailedSessionTime: {
+    color: '#FFFFFF',
     fontSize: 16,
-    fontWeight: '600',
-    color: '#6D28D9',
+    fontWeight: '700',
+    textAlign: 'center',
   },
-  sessionCardActivity: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#4B5563',
+  detailedSessionActivity: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    textAlign: 'center',
+    marginTop: 4,
+    opacity: 0.9,
   },
-  sessionCardBody: {
-    padding: 12,
+  detailedSessionBody: {
+    flex: 1,
+    paddingHorizontal: 16,
+    paddingVertical: 16,
+    justifyContent: 'center',
   },
-  sessionInfoRow: {
+  detailedSessionRow: {
     flexDirection: 'row',
     alignItems: 'center',
     marginBottom: 8,
   },
-  sessionInfoText: {
-    fontSize: 14,
-    color: '#4B5563',
+  detailedSessionText: {
     marginLeft: 8,
+    fontSize: 14,
+    color: '#374151',
+    fontWeight: '500',
   },
-  noSessionCard: {
-    backgroundColor: '#F3F4F6',
-    borderRadius: 10,
-    padding: 16,
-    alignItems: 'center',
+  detailedSessionIcon: {
+    paddingHorizontal: 16,
     justifyContent: 'center',
-    flexDirection: 'row',
-  },
-  noSessionCardText: {
-    fontSize: 14,
-    color: '#9CA3AF',
-    marginLeft: 8,
-  },
-  remindersContainer: {
-    margin: 16,
-    padding: 16,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
-    marginBottom: 32,
-  },
-  reminderHeader: {
-    flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 16,
   },
-  reminderTitle: {
+  noSelectedSessionContainer: {
+    alignItems: 'center',
+    paddingVertical: 32,
+  },
+  noSelectedSessionText: {
+    marginTop: 12,
+    fontSize: 16,
+    color: '#9CA3AF',
+    fontStyle: 'italic',
+  },
+
+  // Competitions
+  competitionCard: {
+    marginHorizontal: 16,
+    marginBottom: 12,
+    borderRadius: 16,
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
+    elevation: 5,
+  },
+  competitionGradient: {
+    padding: 16,
+  },
+  competitionName: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#0E7490',
-    marginLeft: 8,
+    color: '#FFFFFF',
+    marginBottom: 4,
   },
-  reminderCard: {
-    backgroundColor: '#E0F2F7',
-    borderRadius: 10,
-    padding: 14,
-    marginBottom: 12,
+  competitionDate: {
+    fontSize: 14,
+    color: '#FFFFFF',
+    opacity: 0.9,
+    marginBottom: 8,
+    textTransform: 'capitalize',
+  },
+  competitionResult: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#FFFFFF',
+    marginBottom: 8,
+  },
+  competitionDescription: {
+    fontSize: 14,
+    color: '#FFFFFF',
+    opacity: 0.8,
+    lineHeight: 20,
+  },
+
+  // Notifications
+  notificationsContainer: {
+    marginHorizontal: 16,
+    marginBottom: 16,
+  },
+  notificationsCard: {
+    borderRadius: 20,
+    overflow: 'hidden',
+    shadowColor: '#06B6D4',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
+    elevation: 5,
+  },
+  notificationsHeader: {
     flexDirection: 'row',
     alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
   },
-  reminderIconContainer: {
+  notificationsTitle: {
+    marginLeft: 8,
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  notificationCard: {
+    flexDirection: 'row',
+    backgroundColor: '#FFFFFF',
+    marginHorizontal: 16,
+    marginVertical: 8,
+    borderRadius: 12,
+    padding: 16,
+    shadowColor: '#06B6D4',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  notificationIcon: {
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: '#0E7490',
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,
   },
-  reminderContent: {
+  notificationContent: {
     flex: 1,
   },
-  reminderDate: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#0E7490',
+  notificationDate: {
+    fontSize: 12,
+    color: '#9CA3AF',
     marginBottom: 4,
   },
-  reminderText: {
+  notificationTitle: {
     fontSize: 16,
     fontWeight: '600',
     color: '#1F2937',
-    marginBottom: 2,
-  },
-  reminderDescription: {
-    fontSize: 14,
-    color: '#374151',
-    marginBottom: 2,
-  },
-  pastEvents: {
-    marginTop: 24,
-  },
-  pastEventsTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#6B7280',
-    marginBottom: 12,
-  },
-  pastReminderCard: {
-    backgroundColor: '#F3F4F6',
-  },
-  pastIconContainer: {
-    backgroundColor: '#6B7280',
-  },
-  pastReminderDate: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#6B7280',
     marginBottom: 4,
   },
-  pastReminderText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#1F2937',
-    marginBottom: 2,
-  },
-  pastReminderPerson: {
+  notificationMessage: {
     fontSize: 14,
     color: '#4B5563',
+    lineHeight: 20,
+  },
+  noNotificationsContainer: {
+    alignItems: 'center',
+    paddingVertical: 32,
+  },
+  noNotificationsText: {
+    fontSize: 16,
+    color: '#9CA3AF',
+    fontStyle: 'italic',
+  },
+
+  // Bottom Spacing
+  bottomSpacing: {
+    height: 32,
   },
 });

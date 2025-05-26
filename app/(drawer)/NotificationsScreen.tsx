@@ -59,6 +59,7 @@ export default function NotificationsScreen() {
 
   useEffect(() => {
     filterNotifications();
+    
   }, [selectedType, seenFilter, searchQuery, notifications]);
 
   const markAsSeen = async (id: number) => {
@@ -86,8 +87,13 @@ export default function NotificationsScreen() {
     let data = [...notifications];
 
     if (selectedType) {
-      data = data.filter(n => n.type === selectedType);
-    }
+      if (selectedType) {
+        data = data.filter(n =>
+          selectedType === 'admin'
+            ? !n.type // si type est null ou undefined
+            : n.type === selectedType
+        );
+      }    }
     if (seenFilter === 'seen') {
       data = data.filter(n => n.seen);
     } else if (seenFilter === 'unseen') {
@@ -184,7 +190,9 @@ export default function NotificationsScreen() {
         <Picker.Item label="✉️ Messages" value="message" />
         <Picker.Item label="ℹ️ Informations" value="information" />
         <Picker.Item label="💳 Paiements" value="payment" />
+        <Picker.Item label="🛠️ Administratives" value="admin" />
       </Picker>
+
     </View>
 
     <View style={styles.pickerWrapper}>
