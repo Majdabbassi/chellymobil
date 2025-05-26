@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   View, Text, FlatList, TouchableOpacity, StyleSheet,
   Image, SafeAreaView, Alert, ActivityIndicator, Linking
@@ -7,6 +7,7 @@ import { useCart } from '../../../contexts/CartContext';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import API from '@/services/api';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 const getImageSource = (image?: string) => {
   if (!image) {
     return require('@/assets/images/adaptive-icon.png');
@@ -16,14 +17,25 @@ const getImageSource = (image?: string) => {
     return { uri: image };
   }
 
-  // ✅ Construit dynamiquement l’URL à partir de l’instance API
-  return { uri: `${API.defaults.baseURL}/uploads/${image}` };
+  if (image.startsWith('data:')) {
+    return { uri: image }; // cas base64 complet déjà préfixé
+  }
+
+  return { uri: `data:image/jpeg;base64,${image}` }; // base64 brut
 };
 
 export default function CartScreen() {
   const { cartItems, removeFromCart, updateQuantity, clearCart } = useCart();
   const [loading, setLoading] = useState(false);
   const navigation = useNavigation();
+const getOrCreatePanierCode = async (): Promise<string> => {
+  let code = await AsyncStorage.getItem('panierCode');
+  if (!code) {
+    code = `panier-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`;
+    await AsyncStorage.setItem('panierCode', code);
+  }
+  return code;
+};
 
   const total = cartItems.reduce((sum, item) => sum + item.prix * item.quantity, 0);
   const shippingFee = total > 100 ? 0 : 7;
@@ -62,7 +74,26 @@ const handleCreateCommande = async () => {
   }
 };
 
-  
+  useEffect(() => {
+  fetchPanierFromBackend();
+}, []);
+
+
+const fetchPanierFromBackend = async () => {
+  try {
+    const code = await getOrCreatePanierCode();
+    const response = await API.get(`/panier/by-code/${code}`);
+    const produits = response.data.items;
+
+    if (Array.isArray(produits)) {
+      produits.forEach((item: any) => {
+        updateQuantity(item.id, item.size, item.quantity, item.designation, item.prix, item.image);
+      });
+    }
+
+  } catch (error) {
+    console.error("❌ Erreur récupération panier backend :", error);
+  }}
 const handleKonnectProductPayment = async () => {
   if (cartItems.length === 0) {
     Alert.alert("Panier vide", "Ajoutez des produits avant de payer.");

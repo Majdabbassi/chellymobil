@@ -19,12 +19,15 @@ import {
   BackHandler,
   Keyboard
 } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+
 import { useRouter } from 'expo-router';
 import { getAllProducts } from '@/services/products';
 import { Ionicons, FontAwesome5, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useCart } from '../../../contexts/CartContext';
 import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
+import API from '@/services/api';
 
 const { width, height } = Dimensions.get('window');
 const numColumns = 2;
@@ -197,7 +200,29 @@ export default function BoutiqueScreen() {
   useEffect(() => {
     fetchProducts();
   }, [fetchProducts]);
+useEffect(() => {
+  const fetchWishlist = async () => {
+    try {
+      const code = await getOrCreateWishlistCode();
+      const res = await API.get(`/wishlist/by-code/${code}`);
+      const produitIds = res.data.items?.map(item => item.produitId) || [];
+      setWishlist(produitIds);
+    } catch (err) {
+      console.error("❌ Erreur chargement wishlist:", err);
+    }
+  };
 
+
+  fetchWishlist();
+}, []);
+const logVisit = async () => {
+  try {
+    await API.post('/visits/log');
+    console.log("📈 Visite enregistrée");
+  } catch (err) {
+    console.warn("⚠️ Impossible d'enregistrer la visite :", err);
+  }
+};
   useEffect(() => {
     const backHandler = BackHandler.addEventListener('hardwareBackPress', () => {
       if (showModal || showSizeGuide) {
@@ -220,6 +245,9 @@ export default function BoutiqueScreen() {
       setTimeout(() => searchInputRef.current?.focus(), 100);
     }
   }, [showSearch]);
+useEffect(() => {
+  logVisit();
+}, []);
 
   // Event handlers
   const onRefresh = useCallback(() => {
@@ -240,16 +268,31 @@ export default function BoutiqueScreen() {
     router.push(`/product/${item.id}`);
   }, [router]);
 
-  const toggleWishlist = useCallback((productId: number) => {
-    setWishlist(prev => {
-      const newWishlist = prev.includes(productId)
-        ? prev.filter(id => id !== productId)
-        : [...prev, productId];
-      
-      // Here you could also save to AsyncStorage or send to API
-      return newWishlist;
-    });
-  }, []);
+const toggleWishlist = useCallback(async (productId: number) => {
+  try {
+    const code = await getOrCreateWishlistCode();
+
+    const newWishlist = wishlist.includes(productId)
+      ? wishlist.filter(id => id !== productId)
+      : [...wishlist, productId];
+
+    setWishlist(newWishlist); // mise à jour locale
+
+    // Synchronisation backend
+    const payload = {
+      codeWishlist: code,
+      dto: {
+        items: newWishlist.map(id => ({ produitId: id }))
+      }
+    };
+
+    await API.post('/wishlist/sync', payload);
+    console.log('🧡 Wishlist sync sent:', payload);
+  } catch (err) {
+    console.error("❌ Erreur de sync wishlist :", err);
+  }
+}, [wishlist]);
+
 
   const handleSearch = useCallback((text: string) => {
     setSearchQuery(text);
@@ -258,6 +301,14 @@ export default function BoutiqueScreen() {
       setSelectedCategory('Tous');
     }
   }, [selectedCategory]);
+const getOrCreateWishlistCode = async () => {
+  let code = await AsyncStorage.getItem('wishlistCode');
+  if (!code) {
+    code = `wishlist-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`;
+    await AsyncStorage.setItem('wishlistCode', code);
+  }
+  return code;
+};
 
   const handleCategorySelect = useCallback((category: string) => {
     setSelectedCategory(category);
@@ -275,41 +326,67 @@ export default function BoutiqueScreen() {
     Keyboard.dismiss();
   }, []);
 
-  const handleAddToCart = useCallback(() => {
-    if (!selectedProduct) return;
 
-    try {
-      addToCart({
-        id: selectedProduct.id,
-        designation: selectedProduct.designation,
-        prix: calculateFinalPrice(selectedProduct.prix, selectedProduct.promotion),
-        quantity,
-        size,
-        image: selectedProduct.imageBase64,
-      });
+const getOrCreatePanierCode = async () => {
+  let code = await AsyncStorage.getItem('panierCode');
+  if (!code) {
+    code = `panier-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`;
+    await AsyncStorage.setItem('panierCode', code);
+  }
+  return code;
+};
 
-      setShowModal(false);
-      
-      Alert.alert(
-        "✅ Ajouté au panier", 
-        `${quantity} × "${selectedProduct.designation}" (taille ${size}) a été ajouté à votre panier.`,
-        [
-          { 
-            text: "Voir le panier", 
-            onPress: () => router.push('/cart'),
-            style: "default"
-          },
-          { 
-            text: "Continuer les achats", 
-            style: "cancel" 
-          }
-        ]
-      );
-    } catch (error) {
-      Alert.alert('Erreur', 'Impossible d\'ajouter le produit au panier.');
-      console.error('Error adding to cart:', error);
-    }
-  }, [selectedProduct, quantity, size, addToCart, router]);
+const handleAddToCart = useCallback(async () => {
+  if (!selectedProduct) return;
+
+  try {
+    const codePanier = await getOrCreatePanierCode();
+
+    const newItem = {
+      id: selectedProduct.id,
+      designation: selectedProduct.designation,
+      prix: calculateFinalPrice(selectedProduct.prix, selectedProduct.promotion),
+      quantity,
+      size,
+      image: selectedProduct.imageBase64,
+    };
+
+    addToCart(newItem); // 👈 local update
+
+    const dtoItems = [...cartItems, newItem].map(item => ({
+      produitId: item.id,
+      quantite: item.quantity,
+      taille: item.size
+    }));
+
+    const payload = {
+      codePanier,
+      dto: {
+        items: dtoItems
+      }
+    };
+
+    console.log("📦 Payload envoyé au backend :", payload);
+
+    await API.post('/panier/sync', payload);
+
+    setShowModal(false);
+
+    Alert.alert(
+      "✅ Ajouté au panier", 
+      `${quantity} × "${selectedProduct.designation}" (taille ${size}) a été ajouté.`,
+      [
+        { text: "Voir le panier", onPress: () => router.push('/cart') },
+        { text: "Continuer les achats", style: "cancel" }
+      ]
+    );
+  } catch (error) {
+    Alert.alert('Erreur', 'Impossible d\'ajouter le produit au panier.');
+    console.error('Erreur ajout panier :', error);
+  }
+}, [selectedProduct, quantity, size, cartItems, addToCart, router]);
+
+
 
   // Render functions
   const renderItem = useCallback(({ item, index }: { item: Product; index: number }) => {
@@ -457,7 +534,18 @@ export default function BoutiqueScreen() {
 }
 
 // Component extractions for better organization
-const ProductCard = React.memo(({ 
+interface ProductCardProps {
+  product: Product;
+  imageSource: any;
+  finalPrice: number;
+  stockStatus: { text: string; color: string };
+  isInWishlist: boolean;
+  onPress: () => void;
+  onBuyPress: () => void;
+  onWishlistPress: () => void;
+}
+
+const ProductCard: React.FC<ProductCardProps> = React.memo(({ 
   product, imageSource, finalPrice, stockStatus, isInWishlist, 
   onPress, onBuyPress, onWishlistPress 
 }) => (
@@ -472,7 +560,7 @@ const ProductCard = React.memo(({
         style={styles.image}
         resizeMode="cover"
       />
-      {product.promotion > 0 && (
+      {typeof product.promotion === 'number' && product.promotion > 0 && (
         <View style={styles.promotionBadge}>
           <Text style={styles.promotionText}>-{product.promotion}%</Text>
         </View>
@@ -1567,3 +1655,5 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
 });
+
+
