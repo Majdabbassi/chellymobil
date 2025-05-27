@@ -20,7 +20,7 @@ import { Modal, FlatList, Pressable } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 
 const { width, height } = Dimensions.get('window');
-const API_BASE_URL = Constants?.expoConfig?.extra?.apiUrl ?? 'http://192.168.227.138:8080';
+const API_BASE_URL = Constants?.expoConfig?.extra?.apiUrl ?? 'http://192.168.110.138:8080';
 
 export default function ActivityDetailsScreen() {
   const { id } = useLocalSearchParams();

@@ -21,7 +21,7 @@ import { NotificationDTO } from './NotificationsScreen';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
 
-const BASE_URL = 'http://192.168.227.138:8080/api/sessions';
+const BASE_URL = 'http://192.168.110.138:8080/api/sessions';
 
 // Interfaces
 interface Adherent {

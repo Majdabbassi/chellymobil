@@ -26,7 +26,7 @@ import AwesomeAlert from 'react-native-awesome-alerts';
 import axios from 'axios';
 
 // Get API base URL from environment variables or fallback to a default
-const API_BASE_URL = Constants?.expoConfig?.extra?.apiUrl ?? 'http://192.168.227.138:8080';
+const API_BASE_URL = Constants?.expoConfig?.extra?.apiUrl ?? 'http://192.168.110.138:8080';
 
 export default function PaymentSelectionScreen() {
   const months = ['Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin', 'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre'];
