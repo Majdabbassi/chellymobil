@@ -21,7 +21,7 @@ import {
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-import { useRouter } from 'expo-router';
+import { router, useRouter } from 'expo-router';
 import { getAllProducts } from '@/services/products';
 import { Ionicons, FontAwesome5, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useCart } from '../../../contexts/CartContext';
@@ -63,7 +63,7 @@ const COLORS = {
 const useAnimations = () => {
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const scrollY = useRef(new Animated.Value(0)).current;
-  
+
   const headerHeight = scrollY.interpolate({
     inputRange: [0, 100],
     outputRange: [Platform.OS === 'ios' ? 100 : 64, Platform.OS === 'ios' ? 70 : 60],
@@ -152,7 +152,8 @@ export default function BoutiqueScreen() {
   const [showSearch, setShowSearch] = useState(false);
   const [categories, setCategories] = useState(['Tous']);
   const [wishlist, setWishlist] = useState<number[]>([]);
-  
+    const [isAuthenticated, setIsAuthenticated] = useState(false);
+
   // Modal states
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [quantity, setQuantity] = useState(1);
@@ -215,6 +216,14 @@ useEffect(() => {
 
   fetchWishlist();
 }, []);
+useEffect(() => {
+  const checkAuth = async () => {
+    const token = await AsyncStorage.getItem('token');
+    setIsAuthenticated(!!token);
+  };
+  checkAuth();
+}, []);
+
 const logVisit = async () => {
   try {
     await API.post('/visits/log');
@@ -473,8 +482,9 @@ const handleAddToCart = useCallback(async () => {
     <View style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor={COLORS.primary} />
       
-      {renderHeader()}
-      
+     
+
+    {renderHeader()}
       <Animated.FlatList
         ref={flatListRef}
         data={filteredProducts}
@@ -659,45 +669,54 @@ const HeaderComponent = React.memo(({
       style={styles.headerGradient}
     >
       <SafeAreaView style={styles.headerSafeArea}>
-        <View style={styles.headerTop}>
-          <View style={styles.headerTitleContainer}>
-            <FontAwesome5 name="tshirt" size={22} color="#fff" style={styles.headerIcon} />
-            <Text style={styles.headerTitle}>ChellySport</Text>
-          </View>
-          
-          <View style={styles.headerActions}>
-            <TouchableOpacity 
-              style={[styles.headerButton, showSearch && styles.headerButtonActive]}
-              onPress={onSearchToggle}
-            >
-              <Ionicons name="search" size={22} color="#fff" />
-            </TouchableOpacity>
-            
-            <TouchableOpacity 
-              style={styles.headerButton}
-              onPress={onWishlistPress}
-            >
-              <Ionicons name="heart-outline" size={22} color="#fff" />
-              {wishlistCount > 0 && (
-                <View style={styles.badgeSmall}>
-                  <Text style={styles.badgeTextSmall}>{wishlistCount}</Text>
-                </View>
-              )}
-            </TouchableOpacity>
-            
-            <TouchableOpacity 
-              style={styles.headerButton}
-              onPress={onCartPress}
-            >
-              <Ionicons name="cart-outline" size={22} color="#fff" />
-              {cartCount > 0 && (
-                <View style={styles.badgeSmall}>
-                  <Text style={styles.badgeTextSmall}>{cartCount}</Text>
-                </View>
-              )}
-            </TouchableOpacity>
-          </View>
+<View style={styles.headerRow}>
+  <View style={styles.headerLeft}>
+    <TouchableOpacity
+      onPress={() => router.push('/ParentDashboardScreen')}
+      style={styles.backButtonInline}
+    >
+      <Ionicons name="arrow-back" size={20} color="#fff" />
+      <Text style={styles.backText}>Retour</Text>
+    </TouchableOpacity>
+  </View>
+
+  <View style={styles.headerCenter}>
+    <FontAwesome5 name="tshirt" size={22} color="#fff" style={styles.headerIcon} />
+    <Text style={styles.headerTitle}>ChellySport</Text>
+  </View>
+
+  <View style={styles.headerRight}>
+    <TouchableOpacity 
+      style={[styles.headerButton, showSearch && styles.headerButtonActive]}
+      onPress={onSearchToggle}
+    >
+      <Ionicons name="search" size={22} color="#fff" />
+    </TouchableOpacity>
+    <TouchableOpacity 
+      style={styles.headerButton}
+      onPress={onWishlistPress}
+    >
+      <Ionicons name="heart-outline" size={22} color="#fff" />
+      {wishlistCount > 0 && (
+        <View style={styles.badgeSmall}>
+          <Text style={styles.badgeTextSmall}>{wishlistCount}</Text>
         </View>
+      )}
+    </TouchableOpacity>
+    <TouchableOpacity 
+      style={styles.headerButton}
+      onPress={onCartPress}
+    >
+      <Ionicons name="cart-outline" size={22} color="#fff" />
+      {cartCount > 0 && (
+        <View style={styles.badgeSmall}>
+          <Text style={styles.badgeTextSmall}>{cartCount}</Text>
+        </View>
+      )}
+    </TouchableOpacity>
+  </View>
+</View>
+
         
         {showSearch && (
           <View style={styles.searchContainer}>
@@ -794,6 +813,8 @@ const ScrollableCategoryFilter = React.memo(({ categories, selectedCategory, onS
       )}
       contentContainerStyle={styles.categoryList}
     />
+
+
   </View>
 ));
 
@@ -1212,6 +1233,47 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
+
+  headerRow: {
+  flexDirection: 'row',
+  justifyContent: 'space-between',
+  alignItems: 'center',
+  paddingVertical: 12,
+},
+
+headerLeft: {
+  flex: 1,
+  flexDirection: 'row',
+  alignItems: 'center',
+},
+
+headerCenter: {
+  flex: 2,
+  flexDirection: 'row',
+  justifyContent: 'center',
+  alignItems: 'center',
+},
+
+headerRight: {
+  flex: 1,
+  flexDirection: 'row',
+  justifyContent: 'flex-end',
+  alignItems: 'center',
+},
+
+backButtonInline: {
+  flexDirection: 'row',
+  alignItems: 'center',
+},
+
+backText: {
+  color: '#fff',
+  marginLeft: 4,
+  fontWeight: '500',
+},
+
+
+
   soldOutText: {
     color: '#fff',
     fontSize: 16,
@@ -1654,6 +1716,29 @@ const styles = StyleSheet.create({
     marginLeft: 12,
     lineHeight: 20,
   },
+  backButton: {
+  position: 'absolute',
+  top: Platform.OS === 'ios' ? 60 : 40,
+  left: 20,
+  zIndex: 1000,
+  flexDirection: 'row',
+  alignItems: 'center',
+  backgroundColor: COLORS.primary,
+  paddingHorizontal: 12,
+  paddingVertical: 8,
+  borderRadius: 20,
+  shadowColor: '#000',
+  shadowOffset: { width: 0, height: 2 },
+  shadowOpacity: 0.2,
+  shadowRadius: 4,
+  elevation: 5,
+},
+backButtonText: {
+  color: '#fff',
+  fontWeight: '600',
+  marginLeft: 6,
+},
+
 });
 
 
