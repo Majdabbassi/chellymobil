@@ -139,14 +139,27 @@ export default function NotificationsScreen() {
 );
 
 
-  const getBadgeStyle = (type?: string) => {
-    switch (type) {
-      case 'message': return { backgroundColor: '#3B82F6' };
-      case 'information': return { backgroundColor: '#10B981' };
-      case 'payment': return { backgroundColor: '#EF4444' };
-      default: return { backgroundColor: '#111827' };
-    }
-  };
+const getBadgeStyle = (type?: string) => {
+  switch (type) {
+    case 'message': 
+      return { 
+        backgroundColor: 'linear-gradient(135deg, #667EEA, #764BA2)',
+        backgroundColor: '#667EEA', // fallback
+      };
+    case 'information': 
+      return { 
+        backgroundColor: '#10B981',
+      };
+    case 'payment': 
+      return { 
+        backgroundColor: '#F59E0B',
+      };
+    default: 
+      return { 
+        backgroundColor: '#8B5CF6',
+      };
+  }
+};
 
   const deleteNotification = async (id: number) => {
     try {
@@ -236,178 +249,183 @@ export default function NotificationsScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F9F7FF',
-    padding: 16,
+    backgroundColor: '#F8FAFC',
+    paddingTop: 50,
   },
+  
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    backgroundColor: '#FFFFFF',
+    borderBottomWidth: 1,
+    borderBottomColor: '#E2E8F0',
+    shadowColor: '#8B5CF6',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  
+  menuIcon: {
+    padding: 8,
+    borderRadius: 12,
+    backgroundColor: '#F3F4F6',
+  },
+  
   pageTitle: {
     fontSize: 24,
-    fontWeight: 'bold',
-    marginBottom: 12,
-    color: '#4B0082',
+    fontWeight: '700',
+    color: '#1F2937',
+    marginLeft: 12,
+    flex: 1,
   },
- 
-  filters: {
-  paddingHorizontal: 16,
-  paddingBottom: 16,
-  gap: 12,
-},
-row: {
-  flexDirection: 'row',
-  justifyContent: 'space-between',
-  gap: 10,
-},
-  input: {
-  flex: 1,
-  height: 44,
-  borderWidth: 1,
-  borderColor: '#E5E7EB',
-  borderRadius: 12,
-  paddingHorizontal: 12,
-  fontSize: 16,
-  backgroundColor: '#fff',
-},
-  refreshBtn: {
-    flexDirection: 'row',
-    backgroundColor: '#6D28D9',
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    borderRadius: 10,
-    alignItems: 'center',
-  },
-  refreshText: {
-    color: 'white',
-    marginLeft: 6,
-    fontWeight: '600',
-  },
-  card: {
-    backgroundColor: '#fff',
-    borderRadius: 14,
-    padding: 16,
-    marginBottom: 14,
-    shadowColor: '#6D28D9',
-    shadowOpacity: 0.1,
-    shadowOffset: { width: 0, height: 6 },
-    shadowRadius: 10,
+  
+  filtersContainer: {
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    marginHorizontal: 16,
+    marginTop: 12,
+    borderRadius: 16,
+    shadowColor: '#8B5CF6',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
     elevation: 3,
   },
-
+  
+  searchInput: {
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1.5,
+    borderColor: '#E2E8F0',
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    fontSize: 16,
+    color: '#374151',
+    marginBottom: 16,
+    shadowColor: '#8B5CF6',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 1,
+  },
+  
+  pickerRow: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  
+  pickerWrapper: {
+    flex: 1,
+    backgroundColor: '#F8FAFC',
+    borderRadius: 12,
+    borderWidth: 1.5,
+    borderColor: '#E2E8F0',
+    overflow: 'hidden',
+    shadowColor: '#8B5CF6',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 1,
+  },
+  
+  picker: {
+    height: 50,
+    color: '#374151',
+  },
+  
+  card: {
+    backgroundColor: '#FFFFFF',
+    marginHorizontal: 16,
+    marginVertical: 6,
+    borderRadius: 16,
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    shadowColor: '#8B5CF6',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    elevation: 3,
+    borderLeftWidth: 4,
+    borderLeftColor: '#E5E7EB',
+  },
+  
   unseenCard: {
-  backgroundColor: '#F0F4FF',
-  borderLeftWidth: 4,
-  borderLeftColor: '#6D28D9',
-},
+    borderLeftColor: '#8B5CF6',
+    backgroundColor: '#FEFBFF',
+    shadowColor: '#8B5CF6',
+    shadowOpacity: 0.15,
+    borderWidth: 1,
+    borderColor: '#E0E7FF',
+  },
+  
   cardContent: {
     flexDirection: 'row',
+    alignItems: 'flex-start',
     justifyContent: 'space-between',
   },
+  
   cardText: {
     flex: 1,
     marginRight: 12,
   },
+  
   title: {
-    fontSize: 16,
+    fontSize: 17,
+    fontWeight: '600',
     color: '#1F2937',
-    marginBottom: 4,
+    marginBottom: 8,
+    lineHeight: 24,
   },
+  
   bold: {
-    fontWeight: 'bold',
-  },
-  badgeRow: {
-    flexDirection: 'row',
-    marginBottom: 4,
-  },
-  badge: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 12,
-    color: '#fff',
-    fontSize: 12,
     fontWeight: '700',
-    alignSelf: 'flex-start',
+    color: '#111827',
   },
-  newBadge: {
-    backgroundColor: '#FACC15',
-    color: '#fff',
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 8,
+  
+  badgeRow: {
+    marginBottom: 8,
+  },
+  
+  badge: {
     fontSize: 11,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 8,
+    alignSelf: 'flex-start',
+    letterSpacing: 0.5,
+    textTransform: 'uppercase',
   },
+  
   message: {
-    fontSize: 14,
-    color: '#374151',
-  },
-  timestamp: {
-    marginTop: 4,
-    fontSize: 12,
+    fontSize: 15,
     color: '#6B7280',
+    lineHeight: 22,
+    marginBottom: 12,
   },
+  
+  timestamp: {
+    fontSize: 13,
+    color: '#9CA3AF',
+    fontWeight: '500',
+  },
+  
+  newBadge: {
+    color: '#8B5CF6',
+    fontWeight: '700',
+    fontSize: 12,
+  },
+  
   empty: {
     textAlign: 'center',
-    marginTop: 40,
+    fontSize: 18,
     color: '#9CA3AF',
-    fontSize: 15,
+    marginTop: 60,
+    fontWeight: '600',
   },
-pickerContainer: {
-  flex: 1,
-  borderWidth: 1,
-  borderColor: '#E5E7EB',
-  borderRadius: 12,
-  backgroundColor: '#fff',
-  paddingHorizontal: 8, // 🔧 make space inside
-  justifyContent: 'center',
-  height: 44,
-  marginBottom: 30,
-},
-filtersContainer: {
-  paddingHorizontal: 16,
-  marginTop: 12,
-  marginBottom: 15,
-},
-
-searchInput: {
-  backgroundColor: '#fff',
-  borderRadius: 12,
-  paddingHorizontal: 14,
-  height: 44,
-  borderWidth: 1,
-  borderColor: '#E5E7EB',
-  marginBottom: 10,
-  fontSize: 15,
-},
-
-pickerRow: {
-  flexDirection: 'row',
-  justifyContent: 'space-between',
-  gap: 10,
-},
-
-pickerWrapper: {
-  flex: 1,
-  borderWidth: 1,
-  borderColor: '#E5E7EB',
-  borderRadius: 12,
-  backgroundColor: '#fff',
-  height: 44,
-  justifyContent: 'center',
-},
-
-picker: {
-  width: '100%',
-  height: 44,
-  fontSize: 14,
-},
-headerRow: {
-  flexDirection: 'row',
-  alignItems: 'center',
-  paddingHorizontal: 20,
-  paddingVertical: 16,
-  backgroundColor: '#F9F7FF',
-},
-menuIcon: {
-  marginRight: 12,
-},
-
-
-
 });
