@@ -8,6 +8,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import API from '@/services/api';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { router } from 'expo-router';
 const getImageSource = (image?: string) => {
   if (!image) {
     return require('@/assets/images/adaptive-icon.png');
@@ -213,11 +214,28 @@ const handleKonnectProductPayment = async () => {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.title}>Mon Panier</Text>
-        {cartItems.length > 0 && (
-          <Text style={styles.itemCount}>{cartItems.length} article{cartItems.length > 1 ? 's' : ''}</Text>
-        )}
-      </View>
+  <View>
+    <Text style={styles.title}>Mon Panier</Text>
+    {cartItems.length > 0 && (
+      <Text style={styles.itemCount}>
+        {cartItems.length} article{cartItems.length > 1 ? 's' : ''}
+      </Text>
+    )}
+  </View>
+
+  <TouchableOpacity
+    onPress={() => router.push('/boutique')}
+    style={{
+      backgroundColor: '#6B46C1',
+      paddingVertical: 6,
+      paddingHorizontal: 12,
+      borderRadius: 8,
+      alignSelf: 'center',
+    }}
+  >
+    <Text style={{ color: 'white', fontWeight: 'bold' }}>Voir Boutique</Text>
+  </TouchableOpacity>
+</View>
 
       {loading && (
         <View style={styles.loadingContainer}>

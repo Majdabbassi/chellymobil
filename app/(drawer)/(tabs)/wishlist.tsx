@@ -139,8 +139,24 @@ const removeFromWishlist = async (productId: number) => {
   return (
     <View style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor="#fff" />
-      <Text style={styles.header}>💜 Ma Wishlist</Text>
+<View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+  <Text style={styles.header}>💜 Ma Wishlist</Text>
 
+  <TouchableOpacity
+    onPress={() => router.push('/boutique')}
+    style={{
+      paddingHorizontal: 12,
+      paddingVertical: 6,
+      backgroundColor: '#6B46C1',
+      borderRadius: 8,
+    }}
+  >
+    <Text style={{ color: 'white', fontWeight: 'bold' }}>Voir Boutique</Text>
+    {/* Or use icon:
+    <Ionicons name="cart-outline" size={20} color="white" />
+    */}
+  </TouchableOpacity>
+</View>
       {loading ? (
         <ActivityIndicator size="large" color={COLORS.primary} style={{ marginTop: 50 }} />
       ) : wishlistProducts.length === 0 ? (

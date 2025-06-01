@@ -365,7 +365,7 @@ export default function ConversationScreen() {
 
   const renderHeader = () => (
     <View style={styles.headerContainer}>
-      <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
+<TouchableOpacity style={styles.backButton} onPress={() => router.push('/messagess')}>
         <Ionicons name="chevron-back" size={24} color="#374151" />
       </TouchableOpacity>
      

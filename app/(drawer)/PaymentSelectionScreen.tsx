@@ -655,7 +655,22 @@ const handleLocalPayment = useCallback(async () => {
       return dateString;
     }
   };
+const getNextThreeMonths = (): string[] => {
+  const now = new Date();
+  const formatter = new Intl.DateTimeFormat('fr-FR', { month: 'long' });
 
+  const result: string[] = [];
+  for (let i = 0; i < 4; i++) {
+    const futureDate = new Date(now.getFullYear(), now.getMonth() + i, 1);
+    const monthName = formatter.format(futureDate);
+    result.push(
+      monthName.charAt(0).toUpperCase() + monthName.slice(1) // Capitaliser
+    );
+  }
+  return result;
+};
+
+const nextMonths = getNextThreeMonths();
   return (
     <SafeAreaView style={styles.safeArea}>
       <StatusBar 
@@ -675,13 +690,6 @@ const handleLocalPayment = useCallback(async () => {
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color="#6B46C1" />
           <Text style={styles.loadingText}>Chargement en cours...</Text>
-        </View>
-      )}
-
-      {error && (
-        <View style={styles.errorContainer}>
-          <Ionicons name="alert-circle" size={24} color="#e53e3e" />
-          <Text style={styles.errorText}>{error}</Text>
         </View>
       )}
 
@@ -791,7 +799,7 @@ const handleLocalPayment = useCallback(async () => {
                 <Text style={styles.sectionTitle}>Mois à payer</Text>
               </View>
               <View style={styles.optionsGrid}>
-                {months.map(month => (
+                {nextMonths.map(month => (
                   <TouchableOpacity
                     key={month}
                     style={[

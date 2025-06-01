@@ -1,82 +1,89 @@
-// This file defines a context and is not a React component.
-// Move this file to a non-routing directory or exclude it from routing.
+// contexts/CartContext.tsx
 
-// This file defines a context and is not a React component route.
-// Move this file to a directory outside of the app/ folder or rename it to CartContext.context.tsx to avoid routing warnings.
+import React, { createContext, useContext, useState, ReactNode } from 'react';
 
-// Moved from app/auth/contexts/ to contexts/ to avoid Expo Router route warning.
-
-import React, { createContext, useContext, useState } from 'react';
-
-// 🧾 Typage d'un article du panier
-export type CartItem = {
+export interface CartItem {
   id: number;
   designation: string;
+  size: string;
   prix: number;
   quantity: number;
-  size: string;
-  [key: string]: any; // Permet d'accepter d'autres champs optionnels
-};
+  image?: string;
+}
 
-// 🎯 Typage du contexte
-type CartContextType = {
+interface CartContextType {
   cartItems: CartItem[];
-  addToCart: (product: CartItem) => void;
-  removeFromCart: (productId: number, size: string) => void;
-  updateQuantity: (id: number, size: string, quantity: number) => void; // Ajouté ici
+  addToCart: (item: CartItem) => void;
+  removeFromCart: (id: number, size: string) => void;
   clearCart: () => void;
-};
+  updateQuantity: (
+    id: number,
+    size: string,
+    quantity: number,
+    designation?: string,
+    prix?: number,
+    image?: string
+  ) => void;
+}
 
-// ⚠️ Initialisation du contexte avec "null" par défaut
-const CartContext = createContext<CartContextType | null>(null);
+const CartContext = createContext<CartContextType | undefined>(undefined);
 
-export const CartProvider = ({ children }: { children: React.ReactNode }) => {
+export const CartProvider = ({ children }: { children: ReactNode }) => {
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
 
-  const addToCart = (product: CartItem) => {
-    const exists = cartItems.find(
-      (item) => item.id === product.id && item.size === product.size
-    );
-
-    if (exists) {
-      setCartItems((prev) =>
-        prev.map((item) =>
-          item.id === product.id && item.size === product.size
-            ? { ...item, quantity: item.quantity + product.quantity }
-            : item
-        )
-      );
-    } else {
-      setCartItems((prev) => [...prev, product]);
-    }
+  const addToCart = (item: CartItem) => {
+    setCartItems((prevItems) => {
+      const existing = prevItems.find(i => i.id === item.id && i.size === item.size);
+      if (existing) {
+        return prevItems.map(i =>
+          i.id === item.id && i.size === item.size
+            ? { ...i, quantity: i.quantity + item.quantity }
+            : i
+        );
+      }
+      return [...prevItems, item];
+    });
   };
 
-  const removeFromCart = (productId: number, size: string) => {
-    setCartItems((prev) =>
-      prev.filter((item) => !(item.id === productId && item.size === size))
+  const removeFromCart = (id: number, size: string) => {
+    setCartItems(prevItems =>
+      prevItems.filter(item => !(item.id === id && item.size === size))
     );
   };
 
-  const updateQuantity = (id: number, size: string, quantity: number) => {
-    setCartItems(prev =>
-      prev.map(item =>
-        item.id === id && item.size === size
-          ? { ...item, quantity }
-          : item
-      )
-    );
+  const clearCart = () => {
+    setCartItems([]);
   };
 
-  const clearCart = () => setCartItems([]);
+  const updateQuantity = (
+    id: number,
+    size: string,
+    quantity: number,
+    designation?: string,
+    prix?: number,
+    image?: string
+  ) => {
+    setCartItems(prevItems => {
+      const exists = prevItems.some(i => i.id === id && i.size === size);
+      if (exists) {
+        return prevItems.map(item =>
+          item.id === id && item.size === size ? { ...item, quantity } : item
+        );
+      } else if (designation && prix) {
+        return [...prevItems, { id, size, quantity, designation, prix, image }];
+      } else {
+        return prevItems;
+      }
+    });
+  };
 
   return (
-    <CartContext.Provider value={{ cartItems, addToCart, removeFromCart, updateQuantity, clearCart }}>
+    <CartContext.Provider value={{ cartItems, addToCart, removeFromCart, clearCart, updateQuantity }}>
       {children}
     </CartContext.Provider>
   );
 };
 
-// Hook personnalisé pour utiliser le panier
 export const useCart = (): CartContextType => {
   const context = useContext(CartContext);
   if (!context) {
@@ -84,4 +91,3 @@ export const useCart = (): CartContextType => {
   }
   return context;
 };
-
