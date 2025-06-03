@@ -51,7 +51,6 @@ export default function PaymentConfirmationScreen() {
       const timer = setTimeout(() => {
         router.replace('/(drawer)/ParentDashboardScreen');
       }, 3000);
-
       return () => clearTimeout(timer); // Cleanup
     }
   } else {
