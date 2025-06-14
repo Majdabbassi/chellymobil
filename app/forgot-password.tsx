@@ -9,7 +9,7 @@ export default function ForgotPasswordScreen() {
 
   const handleSubmit = async () => {
   try {
-        await axios.post('http://192.168.110.138:8080/api/password-reset/request', 
+        await axios.post('http://192.168.233.138:8080/api/password-reset/request', 
     { email },
     {
         headers: {
