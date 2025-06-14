@@ -223,6 +223,7 @@ const toggleFavorite = (chatId: string) => {
   // Pour savoir si la feuille d'action est ouverte
   const [showActionSheet, setShowActionSheet] = useState(false);
 // Étape 1 : charger les utilisateurs
+
 useEffect(() => {
   const fetchUsers = async () => {
     try {

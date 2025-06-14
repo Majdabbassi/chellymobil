@@ -1,5 +1,6 @@
 import API from './api';
 import { AxiosError } from 'axios';
+import webSocketService from './websocketService';
 
 /* ------------------------------------------------------------------ */
 /* 🔁 Gestion centralisée des erreurs                                 */
@@ -95,7 +96,12 @@ export const markMessageAsSeen = async (
 /* ------------------------------------------------------------------ */
 export const sendMessage = async (messageData: any) => {
   try {
+    // 1. Envoi HTTP classique (pour sauvegarde)
     const { data } = await API.post('/messages/sendMessage', messageData);
+
+    // 2. Envoi en temps réel via WebSocket (pour push direct dans l’autre app)
+    webSocketService.sendMessage(messageData); // <-- ici on envoie juste le payload, PAS la destination
+
     return data;
   } catch (err) {
     handleAxiosError('Error sending message:', err);

@@ -20,6 +20,7 @@ import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as messageService from '@/services/messageService';
 import { getUserById } from '@/services/UserService';
+import webSocketService from '@/services/websocketService';
 
 interface Message {
   id: string;
@@ -65,12 +66,15 @@ export default function ConversationScreen() {
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
   const flatListRef = useRef<FlatList>(null);
+  const roomIdRef = useRef<string | null>(null);
+
   const inputRef = useRef<TextInput>(null);
   const [showProfileModal, setShowProfileModal] = useState(false);
 
   const [contact, setContact] = useState<Contact | null>(null);
   const [currentUser, setCurrentUser] = useState<any>(null);
   const [showHeaderOptions, setShowHeaderOptions] = useState(false);
+
   const handleDeleteConversation = () => {
     Alert.alert(
       'Supprimer la discussion',
@@ -85,7 +89,7 @@ export default function ConversationScreen() {
               if (!currentUser || !contact) return;
               await messageService.deleteConversation(currentUser.id, parseInt(contact.id));
               Alert.alert('Succès', 'Conversation supprimée.');
-              router.back(); // Retourne à la liste
+              router.back();
             } catch (error) {
               console.error('Erreur suppression conversation', error);
               Alert.alert('Erreur', 'Impossible de supprimer la conversation.');
@@ -95,43 +99,113 @@ export default function ConversationScreen() {
       ]
     );
   };
-  
+
+  // Effect pour gérer les messages WebSocket entrants
+const wsInitializedRef = useRef(false);
+
+useEffect(() => {
+  if (currentUser && contact && roomIdRef.current && !wsInitializedRef.current) {
+ const handleIncomingMessage = (msg: any) => {
+  console.log('📥 Message reçu via WS:', msg);
+
+  // 🛠️ S'assurer que senderId est bien comparé
+  if (msg.senderId?.toString() === contact.id.toString()) {
+    const incomingMessage: Message = {
+      id: Date.now().toString(), // Tu peux ajouter un `msg.id` si dispo côté backend
+      sender: 'contact',
+      text: msg.content,
+      timestamp: new Date().toISOString(),
+      status: 'delivered',
+      senderId: msg.senderId?.toString(),
+      senderName: contact.name,
+      senderAvatar: contact.avatar
+    };
+
+    setMessages(prev => {
+      const exists = prev.find(m => m.text === incomingMessage.text && m.senderId === incomingMessage.senderId);
+      if (exists) return prev;
+      return [...prev, incomingMessage];
+    });
+
+    // Scroll to end
+    setTimeout(() => {
+      if (flatListRef.current) {
+        flatListRef.current.scrollToEnd({ animated: true });
+      }
+    }, 100);
+  }
+};
+
+
+    // 🔐 Empêche les abonnements multiples
+    wsInitializedRef.current = true;
+
+    // S'abonner au room
+    webSocketService.joinRoom(roomIdRef.current, handleIncomingMessage);
+
+    // S'abonner aussi à la queue personnelle
+    webSocketService.subscribeToUserQueue(handleIncomingMessage);
+  }
+
+  // Nettoyage optionnel au démontage
+  return () => {
+    // ❌ Ne pas disconnect ici si tu veux rester connecté à d'autres rooms
+    // Si tu veux reset pour une autre conversation à venir :
+    // wsInitializedRef.current = false;
+  };
+}, [currentUser, contact]);
+
+
   // Fetch messages and user data
   useEffect(() => {
     const fetchMessages = async () => {
       setLoading(true);
-  
+
       try {
-        // 1) Load current user
+        // 1. Load current user
         const userData = await AsyncStorage.getItem('parent');
         if (!userData) {
-          console.error('No user data found');
+          console.error('❌ No user data found');
           setLoading(false);
           return;
         }
-        
+
         const user = JSON.parse(userData);
         setCurrentUser(user);
-        
-        // 2) Get conversation history
+
+        // ⚙️ Init WebSocket
+        webSocketService.setUserId(user.id.toString());
+        await webSocketService.connect();
+
+        // 2. Get contactId
         const contactId = id?.toString() ?? '';
         if (!contactId) {
-          console.error('No contact ID provided');
+          console.error('❌ No contact ID provided');
           setLoading(false);
           return;
         }
-        
-        // Use user.id and contactId for the conversation
+
+        // 3. Fetch messages
         const fetchedMessages = await messageService.getConversation(
           user.id.toString(),
           contactId
         );
-  
-        // 3) Format messages for FlatList
+
+        // 4. Créer le room ID
+        const senderId = parseInt(user.id);
+        const receiverId = parseInt(contactId);
+        const min = Math.min(senderId, receiverId);
+        const max = Math.max(senderId, receiverId);
+        const roomId = `room-${min}-${max}`;
+        roomIdRef.current = roomId;
+
+        console.log('🏠 Room ID:', roomId);
+
+        // 5. Format messages
         const formatted = fetchedMessages.map((msg: any) => {
           const isUser = msg.sender.id.toString() === user.id.toString();
           const sender = isUser ? msg.sender : msg.sender;
-  
+
           return {
             id: msg.id.toString(),
             sender: isUser ? 'user' : 'contact',
@@ -143,140 +217,117 @@ export default function ConversationScreen() {
             senderId: sender.id.toString(),
           };
         });
-  
+
         setMessages(formatted);
-  
-        /* ------------------------------------------------------------------
-           4) Define the contact displayed in the header
-           ------------------------------------------------------------------*/
-  
-           if (fetchedMessages.length > 0) {
-            const firstMsg = fetchedMessages[0];
-            const contactRaw = firstMsg.sender.id.toString() === user.id.toString()
-              ? firstMsg.receiver
-              : firstMsg.sender;
-          
-            // Extraction correcte du rôle
-            let contactRole = 'Non renseigné';
-            if (contactRaw.roles && Array.isArray(contactRaw.roles) && contactRaw.roles.length > 0) {
-              // ⚡ Correction ici :
-              const firstRole = contactRaw.roles[0];
-              contactRole = typeof firstRole === 'string' ? firstRole : firstRole.nom || firstRole.name || 'Non renseigné';
-            }
-          
-            setContact({
-              id: contactRaw.id.toString(),
-              name: `${contactRaw.nom} ${contactRaw.prenom}`,
-              avatar: getBase64Uri(contactRaw) || 'https://randomuser.me/api/portraits/men/1.jpg',
-              online: false,
-              lastSeen: '',
-              email: contactRaw.email,
-              telephone: contactRaw.telephone,
-              role: contactRole,
-            });
-            console.log("📨 Contact récupéré depuis conversation:", contactRaw);
-          
-          } else {
-            // No messages: new conversation → call getUserById
-            const userInfo = await getUserById(parseInt(contactId));
-            if (userInfo) {
-              // Extraction correcte du rôle pour getUserById
-              let contactRole = 'Non renseigné';
-              if (userInfo.roles && Array.isArray(userInfo.roles) && userInfo.roles.length > 0) {
-                // ⚡ Correction ici aussi :
-                const firstRole = userInfo.roles[0];
-                contactRole = typeof firstRole === 'string' ? firstRole : firstRole.nom || firstRole.name || 'Non renseigné';
-              }
-          
-              setContact({
-                id: userInfo.id.toString(),
-                name: `${userInfo.nom} ${userInfo.prenom}`,
-                avatar: getBase64Uri(userInfo) || 'https://randomuser.me/api/portraits/men/1.jpg',
-                online: false,
-                lastSeen: '',
-                email: userInfo.email,
-                telephone: userInfo.telephone,
-                role: contactRole,
-              });
-              console.log("📨 Contact récupéré depuis getUserById:", userInfo);
-            }
-          }
-          
+
+        // 6. Déduire les infos du contact
+        let contactRaw;
+        if (fetchedMessages.length > 0) {
+          const firstMsg = fetchedMessages[0];
+          contactRaw = firstMsg.sender.id.toString() === user.id.toString()
+            ? firstMsg.receiver
+            : firstMsg.sender;
+        } else {
+          contactRaw = await getUserById(parseInt(contactId));
+        }
+
+        if (contactRaw) {
+          const role = (contactRaw.roles?.[0]?.nom || contactRaw.roles?.[0]?.name || contactRaw.roles?.[0] || 'Non renseigné');
+          setContact({
+            id: contactRaw.id.toString(),
+            name: `${contactRaw.nom} ${contactRaw.prenom}`,
+            avatar: getBase64Uri(contactRaw) || 'https://randomuser.me/api/portraits/men/1.jpg',
+            online: false,
+            lastSeen: '',
+            email: contactRaw.email,
+            telephone: contactRaw.telephone,
+            role: role,
+          });
+          console.log("📨 Contact récupéré:", contactRaw);
+        }
       } catch (err) {
-        console.error('Error loading conversation:', err);
+        console.error('❌ Error loading conversation:', err);
         Alert.alert('Erreur', 'Impossible de charger la conversation');
       } finally {
         setLoading(false);
       }
     };
-  
+
     fetchMessages();
   }, [id]);
 
   const sendMessage = async () => {
-    if (newMessage.trim() === '' || !currentUser || !contact) return;
-    
+    if (newMessage.trim() === '' || !currentUser || !contact || !roomIdRef.current) return;
+
     setSending(true);
-    
-    // Optimistic update for UI responsiveness
+
     const tempMsgId = Date.now().toString();
+    const messageText = newMessage.trim();
+
     const newMsg: Message = {
       id: tempMsgId,
       sender: 'user',
-      text: newMessage.trim(),
+      text: messageText,
       timestamp: new Date().toISOString(),
       status: 'sent',
       senderId: currentUser.id.toString(),
       senderName: `${currentUser.nom} ${currentUser.prenom}`,
       senderAvatar: getBase64Uri(currentUser) || 'https://randomuser.me/api/portraits/men/1.jpg'
     };
-   
-    setMessages([...messages, newMsg]);
+
+    // Ajouter le message optimiste
+    setMessages(prev => [...prev, newMsg]);
     setNewMessage('');
 
+    // Scroll vers le bas
+    setTimeout(() => {
+      if (flatListRef.current) {
+        flatListRef.current.scrollToEnd({ animated: true });
+      }
+    }, 100);
+
     try {
-      // Ensure we're sending IDs as numbers to match backend expectations
+      // Préparer les données du message
       const messageData = {
-        sender: { id: parseInt(currentUser.id) },
-        receiver: { id: parseInt(contact.id) },
-        content: newMessage.trim(),
-        timestamp: new Date().toISOString(),
-        seen: false
+        senderId: parseInt(currentUser.id),
+        receiverId: parseInt(contact.id),
+        content: messageText,
+        timestamp: newMsg.timestamp,
+        seen: false,
       };
 
-      console.log("📤 Sending message data:", JSON.stringify(messageData));
+      console.log("📤 Sending message via WS to room:", roomIdRef.current, messageData);
       
-      const response = await messageService.sendMessage(messageData);
-      console.log("✅ Message sent successfully:", response);
-      
-      // Update the message with the actual ID from server
-      setMessages(prevMessages => 
-        prevMessages.map(msg => 
-          msg.id === tempMsgId 
-            ? {...msg, id: response.id.toString(), status: 'delivered'} 
-            : msg
-        )
-      );
+      // Utiliser la méthode sendMessageToRoom du service
+      webSocketService.sendMessageToRoom(roomIdRef.current, {
+        senderId: messageData.senderId,
+        content: messageData.content
+      });
+
+      // Optionnel: aussi envoyer via HTTP pour persistance
+      try {
+        const response = await messageService.sendMessage(messageData);
+        console.log('✅ Message also sent via HTTP:', response);
+        
+        // Mettre à jour avec l'ID réel si nécessaire
+        if (response && response.id) {
+          setMessages(prev => prev.map(msg => 
+            msg.id === tempMsgId 
+              ? { ...msg, id: response.id.toString(), status: 'delivered' }
+              : msg
+          ));
+        }
+      } catch (httpError) {
+        console.warn('⚠️ HTTP send failed, but WS send succeeded:', httpError);
+      }
+
     } catch (error) {
       console.error('❌ Error sending message:', error);
       
-      // Log detailed error information
-      if (error.response) {
-        console.error('Response data:', error.response.data);
-        console.error('Response status:', error.response.status);
-      } else if (error.request) {
-        console.error('Request made but no response:', error.request);
-      } else {
-        console.error('Error setting up request:', error.message);
-      }
+      // Retirer le message en cas d'erreur
+      setMessages(prev => prev.filter(msg => msg.id !== tempMsgId));
       
-      // Remove the optimistic message
-      setMessages(prevMessages => prevMessages.filter(msg => msg.id !== tempMsgId));
-      
-      Alert.alert(
-        'Erreur d\'envoi', 
-        'Impossible d\'envoyer le message. Veuillez réessayer.'
-      );
+      Alert.alert('Erreur', 'Impossible d\'envoyer le message');
     } finally {
       setSending(false);
     }
@@ -322,7 +373,6 @@ export default function ConversationScreen() {
     }
 
     return (
-      
       <View style={[styles.messageRow, isUser ? styles.userRow : styles.contactRow]}>
         {showAvatar && contact && (
           <Image 
@@ -360,12 +410,11 @@ export default function ConversationScreen() {
         </View>
       </View>
     );
-    
   };
 
   const renderHeader = () => (
     <View style={styles.headerContainer}>
-<TouchableOpacity style={styles.backButton} onPress={() => router.push('/messagess')}>
+      <TouchableOpacity style={styles.backButton} onPress={() => router.push('/messagess')}>
         <Ionicons name="chevron-back" size={24} color="#374151" />
       </TouchableOpacity>
      
@@ -385,7 +434,6 @@ export default function ConversationScreen() {
       )}
      
       <View style={styles.headerActions}>
-        {/* Seul le bouton trois-points reste */}
         <TouchableOpacity 
           style={styles.headerButton} 
           onPress={() => setShowHeaderOptions(true)}
@@ -395,7 +443,6 @@ export default function ConversationScreen() {
       </View>
     </View>
   );
-  
 
   const renderDay = (timestamp: string) => {
     if (!timestamp) return null;
@@ -525,8 +572,8 @@ export default function ConversationScreen() {
             <TouchableOpacity 
               style={styles.headerOptionItem}
               onPress={() => {
-                setShowHeaderOptions(false); // fermer les options
-                setShowProfileModal(true);   // ouvrir le modal profil
+                setShowHeaderOptions(false);
+                setShowProfileModal(true);
               }}
             >
               <Text style={styles.headerOptionText}>Voir le profil</Text>
@@ -596,7 +643,6 @@ export default function ConversationScreen() {
     </SafeAreaView>
   );
 }
-
 const styles = StyleSheet.create({
   // Main structure section
   safeArea: {
